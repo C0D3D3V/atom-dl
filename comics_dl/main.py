@@ -1,0 +1,441 @@
+#!/usr/bin/env python3
+# coding=utf-8
+
+import os
+import sys
+import logging
+import argparse
+import traceback
+
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+
+import comics_dl.utils.process_lock as process_lock
+
+from comics_dl.utils.logger import Log
+from comics_dl.version import __version__
+from comics_dl.extractor_service.metadata_extractor import MetadataExtrator
+from comics_dl.extractor_service.metadata_cleaner import MetadataCleaner
+from comics_dl.download_service.pages_download_service import PagesDownloadService
+from comics_dl.download_service.max_pages_dowmloader import MaxPagesDownloader
+from comics_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
+from comics_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
+from comics_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
+from comics_dl.utils.duplicates_checker import DuplicatesChecker
+from comics_dl.extractor_service.descriptions_generator import DescriptionsGenerator
+from comics_dl.utils.hash_generator import HashGenerator
+from comics_dl.extractor_service.last_date_extrator import LastDateExtractor
+from comics_dl.config_service.config_helper import ConfigHelper
+from comics_dl.jdownloader_connector.finished_remover import FinishedRemover
+
+IS_DEBUG = False
+IS_VERBOSE = False
+
+
+class ReRaiseOnError(logging.StreamHandler):
+    """
+    A logging-handler class which allows the exception-catcher of i.e. PyCharm
+    to intervine
+    """
+
+    def emit(self, record):
+        if hasattr(record, 'exception'):
+            raise record.exception
+
+
+def run_download_pages(storage_path: str, until_date: str, skip_cert_verify: bool):
+    Log.debug('Start downloading all Pages...')
+
+    max_downloader = MaxPagesDownloader(storage_path, categories)
+    max_pages = max_downloader.run()
+    downloader = PagesDownloadService(storage_path, categories, until_date, max_pages, skip_cert_verify)
+    downloader.run()
+    failed_downloads = downloader.get_failed_url_targets()
+    if len(failed_downloads) > 0:
+        print('Failed URLTargets: ')
+        for failed_download in failed_downloads:
+            print(failed_download)
+
+    Log.success('Downloading all Pages finished')
+
+
+def run_extract_last_date(storage_path: str):
+    Log.debug('Start extracting last date...')
+    extrator = LastDateExtractor(storage_path, categories)
+    extrator.run()
+    Log.success('Extracting last date finished')
+
+
+def run_extract_metadata(storage_path: str):
+    Log.debug('Start extracting metadata...')
+    extrator = MetadataExtrator(storage_path, categories)
+    extrator.run()
+    Log.success('Extracting metadata finished')
+
+
+def run_clean_metadata(storage_path: str, metadata_json_path: str):
+    Log.debug('Start cleaning metadata... this will take up to 2 min')
+    cleaner = MetadataCleaner(storage_path, metadata_json_path)
+    cleaner.run()
+    Log.success('Cleaning metadata finished')
+
+
+def run_send_to_jdownloader(storage_path: str, metadata_json_path: str, skip_cert_verify):
+    Log.debug('Start sending metadata to Jdownloader...')
+    sender = JDownloaderFeeder(storage_path, metadata_json_path, categories, skip_cert_verify)
+    sender.run()
+    Log.success('Sending metadata to Jdownloader finished')
+
+
+def run_retry_decryption_of_links():
+    Log.debug('Start retrying of decrypting links that got aborted...')
+    retryer = DecryptionRetryer()
+    retryer.run()
+    Log.success('Retrying of decrypting links that got aborted finished')
+
+
+def run_remove_finished_links(storage_path: str):
+    Log.debug('Start removing of already finished links from JDownloader...')
+    remover = FinishedRemover(storage_path, categories)
+    remover.run()
+    Log.success('Removing of already finished links from JDownloader')
+
+
+def run_extract_link_list(storage_path: str, metadata_json_path: str):
+    Log.debug('Start extracting links from JDownloader link list...')
+    extractor = LinkListExtractor(storage_path, metadata_json_path)
+    extractor.run()
+    Log.success('Extracting links from JDownloader link list finished')
+
+
+def run_check_for_duplicates(storage_path: str, metadata_json_path: str):
+    Log.debug('Start checking for duplicates per book link...')
+    checker = DuplicatesChecker(storage_path, metadata_json_path, categories)
+    checker.run()
+    Log.success('Checking for duplicates per book link finished')
+
+
+def run_add_description_files(storage_path: str, metadata_json_path: str, categories: [str]):
+    Log.debug('Start adding descriptions to all books...')
+    generator = DescriptionsGenerator(storage_path, metadata_json_path, categories)
+    generator.run()
+    Log.success('Adding descriptions to all books finished')
+
+
+def run_generate_hashes_list(storage_path: str, metadata_json_path: str):
+    Log.debug('Start generating hashes for all uncompressed files...')
+    generator = HashGenerator(storage_path, metadata_json_path, categories)
+    generator.run()
+    Log.success('Generating hashes for all uncompressed files finished')
+
+
+def setup_logger(storage_path: str, verbose=False):
+    global IS_VERBOSE
+    log_formatter = logging.Formatter('%(asctime)s  %(levelname)s  {%(module)s}  %(message)s', '%Y-%m-%d %H:%M:%S')
+    log_file = os.path.join(storage_path, 'BooksDownloader.log')
+    log_handler = RotatingFileHandler(
+        log_file, mode='a', maxBytes=1 * 1024 * 1024, backupCount=2, encoding='utf-8', delay=0
+    )
+
+    log_handler.setFormatter(log_formatter)
+    if verbose:
+        log_handler.setLevel(logging.DEBUG)
+        IS_VERBOSE = True
+    else:
+        log_handler.setLevel(logging.INFO)
+
+    app_log = logging.getLogger()
+    if verbose:
+        app_log.setLevel(logging.DEBUG)
+    else:
+        app_log.setLevel(logging.INFO)
+    app_log.addHandler(log_handler)
+
+    logging.info('--- comics-dl started ---------------------')
+    Log.info('Books Downloader starting...')
+    if verbose:
+        logging.debug('comics-dl version: %s', __version__)
+        logging.debug('python version: %s', ".".join(map(str, sys.version_info[:3])))
+
+    if IS_DEBUG:
+        logging.info('Debug-Mode detected. Errors will be re-risen.')
+        app_log.addHandler(ReRaiseOnError())
+
+
+def _dir_path(path):
+    if os.path.isdir(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f'"{str(path)}" is not a valid path. Make sure the directory exists.')
+
+
+def _file_path(path):
+    if os.path.isfile(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f'"{str(path)}" is not a valid path. Make sure the file exists.')
+
+
+def check_debug():
+    global IS_DEBUG
+    if 'pydevd' in sys.modules:
+        IS_DEBUG = True
+        Log.debug('[RUNNING IN DEBUG-MODE!]')
+
+
+def _max_path_length_workaround(path):
+    # Working around MAX_PATH limitation on Windows (see
+    # http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx)
+    if os.name == 'nt':
+        absfilepath = os.path.abspath(path)
+        path = '\\\\?\\' + absfilepath
+        Log.debug("Using absolute paths")
+    else:
+        Log.info("You are not on Windows, you don't need to use this workaround")
+    return path
+
+
+def get_parser():
+    """
+    Creates a new argument parser.
+    """
+    parser = argparse.ArgumentParser(
+        description=('Books Downloader - A collection of tools to download ebooks from ibooks.to')
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument(
+        '--version', action='version', version='comics-dl ' + __version__, help='Print program version and exit'
+    )
+
+    group.add_argument(
+        '-dp',
+        '--download-pages',
+        action='store_true',
+        help=('Downloads all pages from all catergories if not other defined'),
+    )
+
+    group.add_argument(
+        '-eld',
+        '--extract-last-date',
+        action='store_true',
+        help=('Extract the last upload date from the download html files'),
+    )
+
+    group.add_argument(
+        '-em',
+        '--extract-metadata',
+        action='store_true',
+        help=('Extract the metadata from the downloaded pages'),
+    )
+
+    group.add_argument(
+        '-cm',
+        '--clean-metadata',
+        default=None,
+        nargs=1,
+        type=_file_path,
+        help=('Clean the metadata json from duplicated entires'),
+    )
+
+    group.add_argument(
+        '-stj',
+        '--send-to-jdownloader',
+        default=None,
+        nargs=1,
+        type=_file_path,
+        help=('Sends all books in the metadata json to JDownloader'),
+    )
+
+    group.add_argument(
+        '-rdol',
+        '--retry-decryption-of-links',
+        action='store_true',
+        help=('Retry decrpytion of links in JDownloader that got aborted'),
+    )
+
+    group.add_argument(
+        '-rfl',
+        '--remove-finished-links',
+        action='store_true',
+        help=('Remove already finished (links that got extracted in an older run) links from JDownloader'),
+    )
+
+    group.add_argument(
+        '-ell',
+        '--extract-link-list',
+        default=None,
+        nargs=1,
+        type=_file_path,
+        help=('Extract all links in linklist from JDownloader and update history file of already "downloaded" links'),
+    )
+
+    group.add_argument(
+        '-cfd',
+        '--check-for-duplicates',
+        default=None,
+        nargs=1,
+        type=_file_path,
+        help=('Check downloads for duplicates per book link for all books in a given metadata json'),
+    )
+
+    group.add_argument(
+        '-adf',
+        '--add-description-files',
+        default=None,
+        nargs=1,
+        type=_file_path,
+        help=('Add all description files to all book folders for all books in a given metadata json'),
+    )
+
+    group.add_argument(
+        '-ghl',
+        '--generate-hashes-list',
+        default=None,
+        nargs=1,
+        type=_file_path,
+        help=('Generate a list of all hashes for all uncompressed books in a given metadata json'),
+    )
+
+    parser.add_argument(
+        '-p',
+        '--path',
+        default='.',
+        type=_dir_path,
+        help=(
+            'Sets the location of the downloaded files. PATH must be an'
+            + ' existing directory in which you have read and'
+            + ' write access. (default: current working'
+            + ' directory)'
+        ),
+    )
+
+    parser.add_argument(
+        '-ud',
+        '--until-date',
+        default=None,
+        type=str,
+        help=(
+            'Restricts the download of category pages.'
+            + ' Only pages that contain entries with a date newer than the specified date are downloaded.'
+            + ' Date format needs to be: YEAR-MONTH-DAY'
+        ),
+    )
+
+    parser.add_argument(
+        '-mplw',
+        '--max-path-length-workaround',
+        default=False,
+        action='store_true',
+        help=(
+            'If this flag is set, all path are made absolute '
+            + 'in order to workaround the max_path limitation on Windows.'
+            + 'To use relative paths on Windows you should disable the max_path limitation'
+            + 'https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation'
+        ),
+    )
+
+    parser.add_argument(
+        '-t',
+        '--threads',
+        default=10,
+        type=int,
+        help=('Sets the number of download threads. (default: %(default)s)'),
+    )
+
+    parser.add_argument(
+        '-scv',
+        '--skip-cert-verify',
+        default=False,
+        action='store_true',
+        help='If this flag is set, the SSL certificate '
+        + 'is not verified. This option should only be used in '
+        + 'non production environments.',
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        default=False,
+        action='store_true',
+        help='Print various debugging information',
+    )
+
+    return parser
+
+
+# --- called at the program invocation: -------------------------------------
+def main(args=None):
+    """The main routine."""
+
+    check_debug()
+
+    parser = get_parser()
+    args = parser.parse_args(args)
+    if args.max_path_length_workaround:
+        storage_path = _max_path_length_workaround(args.path)
+    else:
+        storage_path = args.path
+    setup_logger(storage_path, args.verbose)
+    until_date = args.until_date
+    categories = args.categories
+    skip_cert_verify = args.skip_cert_verify
+
+    Log.debug(f'Selected categories: {str(categories)}')
+    logging.debug('Selected categories: %s', categories)
+
+    if until_date is None:
+        config = ConfigHelper()
+        until_date = config.get_last_crawled_date()
+
+    parsed_date = None
+    if until_date is not None:
+        parsed_date = datetime.strptime(until_date, "%Y-%m-%d")
+        Log.debug(f'Selected latest date: {parsed_date.strftime("%Y-%m-%d")}')
+        logging.debug('Selected latest date: %s', parsed_date.strftime("%Y-%m-%d"))
+
+    try:
+        if not IS_DEBUG:
+            process_lock.lock(storage_path)
+
+        if args.download_pages:
+            run_download_pages(storage_path, categories, parsed_date, skip_cert_verify)
+        elif args.extract_last_date:
+            run_extract_last_date(storage_path, categories)
+        elif args.extract_metadata:
+            run_extract_metadata(storage_path, categories)
+        elif args.clean_metadata is not None and len(args.clean_metadata) == 1:
+            run_clean_metadata(storage_path, args.clean_metadata[0])
+        elif args.send_to_jdownloader is not None and len(args.send_to_jdownloader) == 1:
+            run_send_to_jdownloader(storage_path, args.send_to_jdownloader[0], categories, skip_cert_verify)
+        elif args.retry_decryption_of_links:
+            run_retry_decryption_of_links()
+        elif args.remove_finished_links:
+            run_remove_finished_links(storage_path, categories)
+        elif args.extract_link_list is not None and len(args.extract_link_list) == 1:
+            run_extract_link_list(storage_path, args.extract_link_list[0])
+        elif args.check_for_duplicates is not None and len(args.check_for_duplicates) == 1:
+            run_check_for_duplicates(storage_path, args.check_for_duplicates[0], categories)
+        elif args.add_description_files is not None and len(args.add_description_files) == 1:
+            run_add_description_files(storage_path, args.add_description_files[0], categories)
+        elif args.generate_hashes_list is not None and len(args.generate_hashes_list) == 1:
+            run_generate_hashes_list(storage_path, args.generate_hashes_list[0], categories)
+
+        Log.success('All done. Exiting..')
+        process_lock.unlock(storage_path)
+    except BaseException as e:
+        print('\n')
+        if not isinstance(e, process_lock.LockError):
+            process_lock.unlock(storage_path)
+
+        error_formatted = traceback.format_exc()
+        logging.error(error_formatted, extra={'exception': e})
+
+        if IS_VERBOSE or IS_DEBUG:
+            Log.critical(f'{error_formatted}')
+        else:
+            Log.error(f'Exception: {e}')
+
+        logging.debug('Exception-Handling completed. Exiting...')
+
+        sys.exit(1)

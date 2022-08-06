@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Books Downloader",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/comics-dl",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/debugging-comics/",
+            "args": [
+                "-v",
+                "-rfl",
+            ],
+            "justMyCode": false
+        }
+    ]
+}
