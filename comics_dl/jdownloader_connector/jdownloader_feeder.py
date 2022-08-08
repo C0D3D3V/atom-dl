@@ -15,7 +15,7 @@ class JDownloaderFeeder:
     stdHeader = {
         'User-Agent': ('Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0'),
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': 'https://ibooks.to/',
+        'Referer': 'https://comicmafia.to/',
     }
 
     def __init__(
@@ -72,7 +72,7 @@ class JDownloaderFeeder:
             "urls": urls,
             "package": book_title,
             "dir": save_to,
-            "passwords": "ibooks.to",
+            "passwords": "comicmafia.to",
         }
 
         package_parameters = self.recursive_urlencode(data)
@@ -135,7 +135,7 @@ class JDownloaderFeeder:
     def ask_for_next_batch(self):
         result = 'No'
         while result.upper() not in ['NEXT', 'BACK']:
-            result = input("Type 'NEXT' to send next 50 books to JDownloader: ")
+            result = input("Type 'NEXT' to send next 50 comics to JDownloader: ")
         if result.upper() == 'BACK':
             return False
         return True

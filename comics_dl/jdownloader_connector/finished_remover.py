@@ -27,7 +27,7 @@ class FinishedRemover:
             'name': 'cover-73.jpg'
             'packageUUID': 1658137165627
             'uuid': 1658137165628
-            'url': 'https://ibooks.to/wp-content/uploads/2019/01/cover-73.jpg'
+            'url': 'https://comicmafia.to/wp-content/uploads/2019/01/cover-73.jpg'
         }
         """
         path_to_already_downloaded_links = str(
@@ -65,7 +65,7 @@ class FinishedRemover:
 
         print('Try to connect to JDownloader...')
         jd = MyJdApi()
-        jd.set_app_key("Books-Downloader")
+        jd.set_app_key("Comics-Downloader")
         config = ConfigHelper()
         username = config.get_my_jd_username()
         password = config.get_my_jd_password()
@@ -143,7 +143,7 @@ class FinishedRemover:
                 link["host"] is not None
                 and link["host"] == 'http links'
                 and link["url"] is not None
-                and link["url"].startswith('https://ibooks.to')
+                and link["url"].startswith('https://comicmafia.to')
             ):
                 idx_link += 1
                 continue

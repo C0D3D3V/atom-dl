@@ -15,10 +15,10 @@ def readme():
 setup(
     name='comics-dl',
     version=__version__,
-    description='A collection of tools to download ebooks from ibooks.to',
+    description='A collection of tools to download comics from comicmafia.to',
     long_description=readme(),
     long_description_content_type='text/markdown',
-    url='https://github.com/user/Books-Downloader',
+    url='https://github.com/user/Comics-Downloader',
     author='user',
     author_email=' user@mag-keinen-spam.de',
     license='MIT',
@@ -39,6 +39,7 @@ setup(
         'aiofiles>=0.6.0',
         'pycryptodome>=3.15.0',
         'rarfile>=4.0',
+        'requests>2.28.1',
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

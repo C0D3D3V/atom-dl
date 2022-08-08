@@ -31,7 +31,7 @@ class LinkListExtractor:
             'name': 'cover-73.jpg'
             'packageUUID': 1658137165627
             'uuid': 1658137165628
-            'url': 'https://ibooks.to/wp-content/uploads/2019/01/cover-73.jpg'
+            'url': 'https://comicmafia.to/wp-content/uploads/2019/01/cover-73.jpg'
         }
         """
         path_to_already_downloaded_links = str(
@@ -48,7 +48,7 @@ class LinkListExtractor:
 
         print('Try to connect to JDownloader...')
         jd = MyJdApi()
-        jd.set_app_key("Books-Downloader")
+        jd.set_app_key("Comics-Downloader")
         config = ConfigHelper()
         username = config.get_my_jd_username()
         password = config.get_my_jd_password()
@@ -92,7 +92,7 @@ class LinkListExtractor:
                 link["host"] is not None
                 and link["host"] == 'http links'
                 and link["url"] is not None
-                and link["url"].startswith('https://ibooks.to')
+                and link["url"].startswith('https://comicmafia.to')
             ):
                 idx_link += 1
                 continue
@@ -119,7 +119,7 @@ class LinkListExtractor:
             'name': 'cover-73.jpg'
             'packageUUID': 1658137165627
             'uuid': 1658137165628
-            'url': 'https://ibooks.to/wp-content/uploads/2019/01/cover-73.jpg'
+            'url': 'https://comicmafia.to/wp-content/uploads/2019/01/cover-73.jpg'
         }
         """
         with open(self.metadata_json_path, encoding='utf-8') as json_file:
@@ -127,7 +127,7 @@ class LinkListExtractor:
 
         print('Try to connect to JDownloader...')
         jd = MyJdApi()
-        jd.set_app_key("Books-Downloader")
+        jd.set_app_key("Comics-Downloader")
         config = ConfigHelper()
         username = config.get_my_jd_username()
         password = config.get_my_jd_password()
@@ -184,8 +184,8 @@ class LinkListExtractor:
 
         print('Setup identifier...')
         for category in metadata:
-            books = metadata[category]
-            for book in books:
+            comics = metadata[category]
+            for book in comics:
                 title = book['title']
                 if title is None or title == '':
                     title = 'Title not defined'
@@ -202,7 +202,7 @@ class LinkListExtractor:
                     link["host"] is not None
                     and link["host"] == 'http links'
                     and link["url"] is not None
-                    and link["url"].startswith('https://ibooks.to')
+                    and link["url"].startswith('https://comicmafia.to')
                 ):
                     continue
                 if link['packageUUID'] == package['uuid']:

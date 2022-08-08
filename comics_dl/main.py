@@ -16,15 +16,13 @@ from comics_dl.utils.logger import Log
 from comics_dl.version import __version__
 from comics_dl.extractor_service.metadata_extractor import MetadataExtrator
 from comics_dl.extractor_service.metadata_cleaner import MetadataCleaner
-from comics_dl.download_service.pages_download_service import PagesDownloadService
-from comics_dl.download_service.max_pages_dowmloader import MaxPagesDownloader
+from comics_dl.download_service.page_links_dowmloader import PageLinksDownloader
 from comics_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
 from comics_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
 from comics_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
 from comics_dl.utils.duplicates_checker import DuplicatesChecker
 from comics_dl.extractor_service.descriptions_generator import DescriptionsGenerator
 from comics_dl.utils.hash_generator import HashGenerator
-from comics_dl.extractor_service.last_date_extrator import LastDateExtractor
 from comics_dl.config_service.config_helper import ConfigHelper
 from comics_dl.jdownloader_connector.finished_remover import FinishedRemover
 
@@ -43,30 +41,14 @@ class ReRaiseOnError(logging.StreamHandler):
             raise record.exception
 
 
-def run_download_pages(storage_path: str, until_date: str, skip_cert_verify: bool):
+def run_download_pages(storage_path: str, categories: [str], until_date: datetime, skip_cert_verify: bool):
     Log.debug('Start downloading all Pages...')
-
-    max_downloader = MaxPagesDownloader(storage_path, categories)
-    max_pages = max_downloader.run()
-    downloader = PagesDownloadService(storage_path, categories, until_date, max_pages, skip_cert_verify)
-    downloader.run()
-    failed_downloads = downloader.get_failed_url_targets()
-    if len(failed_downloads) > 0:
-        print('Failed URLTargets: ')
-        for failed_download in failed_downloads:
-            print(failed_download)
-
+    crawler = PageLinksDownloader(storage_path, categories, until_date, skip_cert_verify)
+    crawler.run()
     Log.success('Downloading all Pages finished')
 
 
-def run_extract_last_date(storage_path: str):
-    Log.debug('Start extracting last date...')
-    extrator = LastDateExtractor(storage_path, categories)
-    extrator.run()
-    Log.success('Extracting last date finished')
-
-
-def run_extract_metadata(storage_path: str):
+def run_extract_metadata(storage_path: str, categories: [str]):
     Log.debug('Start extracting metadata...')
     extrator = MetadataExtrator(storage_path, categories)
     extrator.run()
@@ -80,7 +62,7 @@ def run_clean_metadata(storage_path: str, metadata_json_path: str):
     Log.success('Cleaning metadata finished')
 
 
-def run_send_to_jdownloader(storage_path: str, metadata_json_path: str, skip_cert_verify):
+def run_send_to_jdownloader(storage_path: str, metadata_json_path: str, categories: [str], skip_cert_verify):
     Log.debug('Start sending metadata to Jdownloader...')
     sender = JDownloaderFeeder(storage_path, metadata_json_path, categories, skip_cert_verify)
     sender.run()
@@ -94,7 +76,7 @@ def run_retry_decryption_of_links():
     Log.success('Retrying of decrypting links that got aborted finished')
 
 
-def run_remove_finished_links(storage_path: str):
+def run_remove_finished_links(storage_path: str, categories: [str]):
     Log.debug('Start removing of already finished links from JDownloader...')
     remover = FinishedRemover(storage_path, categories)
     remover.run()
@@ -108,7 +90,7 @@ def run_extract_link_list(storage_path: str, metadata_json_path: str):
     Log.success('Extracting links from JDownloader link list finished')
 
 
-def run_check_for_duplicates(storage_path: str, metadata_json_path: str):
+def run_check_for_duplicates(storage_path: str, metadata_json_path: str, categories: [str]):
     Log.debug('Start checking for duplicates per book link...')
     checker = DuplicatesChecker(storage_path, metadata_json_path, categories)
     checker.run()
@@ -116,13 +98,13 @@ def run_check_for_duplicates(storage_path: str, metadata_json_path: str):
 
 
 def run_add_description_files(storage_path: str, metadata_json_path: str, categories: [str]):
-    Log.debug('Start adding descriptions to all books...')
+    Log.debug('Start adding descriptions to all comics...')
     generator = DescriptionsGenerator(storage_path, metadata_json_path, categories)
     generator.run()
-    Log.success('Adding descriptions to all books finished')
+    Log.success('Adding descriptions to all comics finished')
 
 
-def run_generate_hashes_list(storage_path: str, metadata_json_path: str):
+def run_generate_hashes_list(storage_path: str, metadata_json_path: str, categories: [str]):
     Log.debug('Start generating hashes for all uncompressed files...')
     generator = HashGenerator(storage_path, metadata_json_path, categories)
     generator.run()
@@ -132,7 +114,7 @@ def run_generate_hashes_list(storage_path: str, metadata_json_path: str):
 def setup_logger(storage_path: str, verbose=False):
     global IS_VERBOSE
     log_formatter = logging.Formatter('%(asctime)s  %(levelname)s  {%(module)s}  %(message)s', '%Y-%m-%d %H:%M:%S')
-    log_file = os.path.join(storage_path, 'BooksDownloader.log')
+    log_file = os.path.join(storage_path, 'ComicsDownloader.log')
     log_handler = RotatingFileHandler(
         log_file, mode='a', maxBytes=1 * 1024 * 1024, backupCount=2, encoding='utf-8', delay=0
     )
@@ -152,7 +134,7 @@ def setup_logger(storage_path: str, verbose=False):
     app_log.addHandler(log_handler)
 
     logging.info('--- comics-dl started ---------------------')
-    Log.info('Books Downloader starting...')
+    Log.info('Comics Downloader starting...')
     if verbose:
         logging.debug('comics-dl version: %s', __version__)
         logging.debug('python version: %s', ".".join(map(str, sys.version_info[:3])))
@@ -200,7 +182,7 @@ def get_parser():
     Creates a new argument parser.
     """
     parser = argparse.ArgumentParser(
-        description=('Books Downloader - A collection of tools to download ebooks from ibooks.to')
+        description=('Comics Downloader - A collection of tools to download comics from comicmafia.to')
     )
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -213,13 +195,6 @@ def get_parser():
         '--download-pages',
         action='store_true',
         help=('Downloads all pages from all catergories if not other defined'),
-    )
-
-    group.add_argument(
-        '-eld',
-        '--extract-last-date',
-        action='store_true',
-        help=('Extract the last upload date from the download html files'),
     )
 
     group.add_argument(
@@ -244,7 +219,7 @@ def get_parser():
         default=None,
         nargs=1,
         type=_file_path,
-        help=('Sends all books in the metadata json to JDownloader'),
+        help=('Sends all comics in the metadata json to JDownloader'),
     )
 
     group.add_argument(
@@ -276,7 +251,7 @@ def get_parser():
         default=None,
         nargs=1,
         type=_file_path,
-        help=('Check downloads for duplicates per book link for all books in a given metadata json'),
+        help=('Check downloads for duplicates per book link for all comics in a given metadata json'),
     )
 
     group.add_argument(
@@ -285,7 +260,7 @@ def get_parser():
         default=None,
         nargs=1,
         type=_file_path,
-        help=('Add all description files to all book folders for all books in a given metadata json'),
+        help=('Add all description files to all book folders for all comics in a given metadata json'),
     )
 
     group.add_argument(
@@ -294,7 +269,7 @@ def get_parser():
         default=None,
         nargs=1,
         type=_file_path,
-        help=('Generate a list of all hashes for all uncompressed books in a given metadata json'),
+        help=('Generate a list of all hashes for all uncompressed comics in a given metadata json'),
     )
 
     parser.add_argument(
@@ -320,6 +295,22 @@ def get_parser():
             + ' Only pages that contain entries with a date newer than the specified date are downloaded.'
             + ' Date format needs to be: YEAR-MONTH-DAY'
         ),
+    )
+
+    parser.add_argument(
+        '-cat',
+        '--categories',
+        nargs='*',
+        type=str,
+        default=[
+            "comic",
+            "manga",
+        ],
+        choices=[
+            "comic",
+            "manga",
+        ],
+        help=('Restricts the download of category pages. Only pages form the specified categories are downloaded.'),
     )
 
     parser.add_argument(
@@ -400,8 +391,6 @@ def main(args=None):
 
         if args.download_pages:
             run_download_pages(storage_path, categories, parsed_date, skip_cert_verify)
-        elif args.extract_last_date:
-            run_extract_last_date(storage_path, categories)
         elif args.extract_metadata:
             run_extract_metadata(storage_path, categories)
         elif args.clean_metadata is not None and len(args.clean_metadata) == 1:

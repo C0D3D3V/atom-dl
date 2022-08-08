@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Books Downloader",
+            "name": "Comics Downloader",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/comics-dl",
@@ -10,7 +10,8 @@
             "cwd": "${workspaceFolder}/debugging-comics/",
             "args": [
                 "-v",
-                "-rfl",
+                "-cm",
+                "metadata.json"
             ],
             "justMyCode": false
         }

@@ -1,0 +1,9 @@
+/.idea
+/test
+/debugging-comics
+__pycache__
+/venv
+/build
+/dist
+/comics_dl.egg-info
+ComicsDownloader.log

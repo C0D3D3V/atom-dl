@@ -33,7 +33,16 @@ class ConfigHelper:
     def __init__(self):
         self._whole_config = {}
         self.config_path = str(Path(self.get_user_config_directory()) / 'comics-dl' / 'config.json')
-        self.load()
+        if self.is_present():
+            self.load()
+        else:
+            config_dir_path = str(Path(self.get_user_config_directory()) / 'comics-dl')
+            if not os.path.exists(config_dir_path):
+                try:
+                    os.makedirs(config_dir_path)
+                except FileExistsError:
+                    pass
+                self._save()
 
     def is_present(self) -> bool:
         # Tests if a configuration file exists

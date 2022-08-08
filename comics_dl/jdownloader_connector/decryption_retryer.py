@@ -6,7 +6,7 @@ class DecryptionRetryer:
     def ask_for_next_batch(self):
         result = 'No'
         while result.upper() not in ['NEXT']:
-            result = input("Type 'NEXT' to send next 50 books to JDownloader: ")
+            result = input("Type 'NEXT' to send next 50 comics to JDownloader: ")
         return True
 
     def run(self):
@@ -24,12 +24,12 @@ class DecryptionRetryer:
             'name': 'cover-73.jpg'
             'packageUUID': 1658137165627
             'uuid': 1658137165628
-            'url': 'https://ibooks.to/wp-content/uploads/2019/01/cover-73.jpg'
+            'url': 'https://comicmafia.to/wp-content/uploads/2019/01/cover-73.jpg'
         }
         """
 
         jd = MyJdApi()
-        jd.set_app_key("Books-Downloader")
+        jd.set_app_key("Comics-Downloader")
         config = ConfigHelper()
         username = config.get_my_jd_username()
         password = config.get_my_jd_password()
@@ -101,13 +101,13 @@ class DecryptionRetryer:
             new_package = {
                 "autostart": False,
                 "destinationFolder": retry_package['saveTo'],
-                "downloadPassword": 'ibooks.to',
-                "extractPassword": 'ibooks.to',
+                "downloadPassword": 'comicmafia.to',
+                "extractPassword": 'comicmafia.to',
                 "links": urls,
                 "overwritePackagizerRules": True,
                 "packageName": retry_package['name'],
                 "priority": "DEFAULT",
-                "sourceUrl": 'https://ibooks.to/',
+                "sourceUrl": 'https://comicmafia.to/',
             }
 
             print('Remove and re-add package: ')
