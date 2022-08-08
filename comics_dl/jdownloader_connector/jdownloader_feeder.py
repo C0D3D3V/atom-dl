@@ -57,7 +57,7 @@ class JDownloaderFeeder:
         """
         session = requests.Session()
 
-        urls = book['crypt_download_link']
+        urls = " ".join(link for link in book['crypt_download_links'])
         if urls is None or urls == '':
             print('Error: No download link!')
             return
