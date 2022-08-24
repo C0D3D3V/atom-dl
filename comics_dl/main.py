@@ -25,6 +25,7 @@ from comics_dl.extractor_service.descriptions_generator import DescriptionsGener
 from comics_dl.utils.hash_generator import HashGenerator
 from comics_dl.config_service.config_helper import ConfigHelper
 from comics_dl.jdownloader_connector.finished_remover import FinishedRemover
+from comics_dl.utils.archive_extractor import ArchiveExtractor
 
 IS_DEBUG = False
 IS_VERBOSE = False
@@ -109,6 +110,13 @@ def run_generate_hashes_list(storage_path: str, metadata_json_path: str, categor
     generator = HashGenerator(storage_path, metadata_json_path, categories)
     generator.run()
     Log.success('Generating hashes for all uncompressed files finished')
+
+
+def run_extract_archives(storage_path: str, categories: [str]):
+    Log.debug('Start extracting archives...')
+    extractor = ArchiveExtractor(storage_path, categories)
+    extractor.run()
+    Log.success('Extracting archives finished')
 
 
 def setup_logger(storage_path: str, verbose=False):
@@ -272,6 +280,13 @@ def get_parser():
         help=('Generate a list of all hashes for all uncompressed comics in a given metadata json'),
     )
 
+    group.add_argument(
+        '-ea',
+        '--extract-archives',
+        action='store_true',
+        help=('Extract all archives into a flat data structure and delete the extracted archives'),
+    )
+
     parser.add_argument(
         '-p',
         '--path',
@@ -409,6 +424,8 @@ def main(args=None):
             run_add_description_files(storage_path, args.add_description_files[0], categories)
         elif args.generate_hashes_list is not None and len(args.generate_hashes_list) == 1:
             run_generate_hashes_list(storage_path, args.generate_hashes_list[0], categories)
+        elif args.extract_archives:
+            run_extract_archives(storage_path, categories)
 
         Log.success('All done. Exiting..')
         process_lock.unlock(storage_path)

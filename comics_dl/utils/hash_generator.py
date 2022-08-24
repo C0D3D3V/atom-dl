@@ -3,10 +3,10 @@ import csv
 import json
 import hashlib
 
-import rarfile
-import zipfile
-
 from pathlib import Path
+
+import zipfile
+import rarfile
 
 from comics_dl.download_service.path_tools import PathTools
 
@@ -16,9 +16,6 @@ class HashGenerator:
         self.storage_path = storage_path
         self.metadata_json_path = metadata_json_path
         self.categories = categories
-
-        self.deleted_counter = 0
-        self.deleted_file_counter = 0
 
         with open(self.metadata_json_path, encoding='utf-8') as json_file:
             self.metadata = json.load(json_file)

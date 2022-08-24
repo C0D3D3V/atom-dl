@@ -10,8 +10,7 @@
             "cwd": "${workspaceFolder}/debugging-comics/",
             "args": [
                 "-v",
-                "-ell",
-                "man_cleaned_metadata.json"
+                "-ea",
             ],
             "justMyCode": false
         }
