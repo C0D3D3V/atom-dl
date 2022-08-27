@@ -22,6 +22,7 @@ class ArchiveExtractor:
 
         self.file_hash_map = {}
         self.hash_file_map = {}
+        self.file_size_map = {}
 
     def extract_archvives_in_category(self, category):
 
@@ -101,6 +102,25 @@ class ArchiveExtractor:
                             str(Path(category_path) / book_title / compressed_file_path.name)
                         )
 
+                        # precheck if it does already exist
+                        if check_for_duplication:
+                            CHUNCK_SIZE = 8192
+                            md = hashlib.sha1()
+                            with container.open(compressed_file_info.filename) as precheck_source:
+                                chunk = precheck_source.read(CHUNCK_SIZE)
+                                md.update(chunk)
+                            header_hash = md.hexdigest()
+                            file_size = compressed_file_info.file_size
+                            is_duplicate = False
+                            if header_hash in self.hash_file_map:
+                                for hashed_file_path in self.hash_file_map[header_hash]:
+                                    if self.file_size_map[hashed_file_path] == file_size:
+                                        print(f'Already exitsts: `{compressed_file_path.name}`')
+                                        is_duplicate = True
+                                        break
+                            if is_duplicate:
+                                continue
+
                         source = container.open(compressed_file_info.filename)
                         target = open(target_path, "wb")
 
@@ -147,17 +167,20 @@ class ArchiveExtractor:
         md = hashlib.sha1()
         with open(path, 'rb') as istr:
             chunk = istr.read(CHUNCK_SIZE)
-            while True:
-                if not chunk:
-                    break
-                md.update(chunk)
+            md.update(chunk)
 
         header_hash = md.hexdigest()
+        file_size = os.path.getsize(path)
         if header_hash in self.hash_file_map:
-            print(f'Info: {path} is duplication of {self.hash_file_map[header_hash]}!')
-            return False
-        self.hash_file_map[header_hash] = path
+            for file_path in self.hash_file_map[header_hash]:
+                if self.file_size_map[file_path] == file_size:
+                    print(f'Info: {path} is duplication of {file_path}!')
+                    return False
+        else:
+            self.hash_file_map[header_hash] = []
+        self.hash_file_map[header_hash].append(path)
         self.file_hash_map[path] = header_hash
+        self.file_size_map[path] = file_size
         return True
 
     def get_path_of_non_existent_file(self, wish_path: str) -> (bool, str):
