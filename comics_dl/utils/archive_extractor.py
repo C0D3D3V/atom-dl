@@ -91,6 +91,7 @@ class ArchiveExtractor:
                         print(compressed_paths)
                         continue
 
+                    extracted_counter = 0
                     for compressed_file_info in container.infolist():
                         if compressed_file_info.is_dir():
                             continue
@@ -126,6 +127,7 @@ class ArchiveExtractor:
 
                         with source, target:
                             shutil.copyfileobj(source, target)
+                        extracted_counter += 1
 
                         if check_for_duplication:
                             if not self.gen_hash_of_file(target_path):
@@ -134,6 +136,8 @@ class ArchiveExtractor:
                                     os.remove(target_path)
                                 except OSError as error_inner:
                                     print(f'Failed to remove {target_path} - Error: {error_inner}')
+
+                    print(f'INFO: Extracted {extracted_counter} file(s)')
 
                     if part_num == 0:
                         files_to_delete.append(filename)
