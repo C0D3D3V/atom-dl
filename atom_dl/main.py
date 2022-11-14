@@ -10,22 +10,22 @@ import traceback
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-import comics_dl.utils.process_lock as process_lock
+import atom_dl.utils.process_lock as process_lock
 
-from comics_dl.utils.logger import Log
-from comics_dl.version import __version__
-from comics_dl.extractor_service.metadata_extractor import MetadataExtrator
-from comics_dl.extractor_service.metadata_cleaner import MetadataCleaner
-from comics_dl.download_service.page_links_dowmloader import PageLinksDownloader
-from comics_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
-from comics_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
-from comics_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
-from comics_dl.utils.duplicates_checker import DuplicatesChecker
-from comics_dl.extractor_service.descriptions_generator import DescriptionsGenerator
-from comics_dl.utils.hash_generator import HashGenerator
-from comics_dl.config_service.config_helper import ConfigHelper
-from comics_dl.jdownloader_connector.finished_remover import FinishedRemover
-from comics_dl.utils.archive_extractor import ArchiveExtractor
+from atom_dl.utils.logger import Log
+from atom_dl.version import __version__
+from atom_dl.extractor_service.metadata_extractor import MetadataExtrator
+from atom_dl.extractor_service.metadata_cleaner import MetadataCleaner
+from atom_dl.download_service.page_links_dowmloader import PageLinksDownloader
+from atom_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
+from atom_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
+from atom_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
+from atom_dl.utils.duplicates_checker import DuplicatesChecker
+from atom_dl.extractor_service.descriptions_generator import DescriptionsGenerator
+from atom_dl.utils.hash_generator import HashGenerator
+from atom_dl.config_service.config_helper import ConfigHelper
+from atom_dl.jdownloader_connector.finished_remover import FinishedRemover
+from atom_dl.utils.archive_extractor import ArchiveExtractor
 
 IS_DEBUG = False
 IS_VERBOSE = False
@@ -122,7 +122,7 @@ def run_extract_archives(storage_path: str, categories: [str]):
 def setup_logger(storage_path: str, verbose=False):
     global IS_VERBOSE
     log_formatter = logging.Formatter('%(asctime)s  %(levelname)s  {%(module)s}  %(message)s', '%Y-%m-%d %H:%M:%S')
-    log_file = os.path.join(storage_path, 'ComicsDownloader.log')
+    log_file = os.path.join(storage_path, 'AtomDownloader.log')
     log_handler = RotatingFileHandler(
         log_file, mode='a', maxBytes=1 * 1024 * 1024, backupCount=2, encoding='utf-8', delay=0
     )
@@ -141,10 +141,10 @@ def setup_logger(storage_path: str, verbose=False):
         app_log.setLevel(logging.INFO)
     app_log.addHandler(log_handler)
 
-    logging.info('--- comics-dl started ---------------------')
-    Log.info('Comics Downloader starting...')
+    logging.info('--- atom-dl started ---------------------')
+    Log.info('Atom Downloader starting...')
     if verbose:
-        logging.debug('comics-dl version: %s', __version__)
+        logging.debug('atom-dl version: %s', __version__)
         logging.debug('python version: %s', ".".join(map(str, sys.version_info[:3])))
 
     if IS_DEBUG:
@@ -190,12 +190,12 @@ def get_parser():
     Creates a new argument parser.
     """
     parser = argparse.ArgumentParser(
-        description=('Comics Downloader - A collection of tools to download comics from comicmafia.to')
+        description=('Atom Downloader - A collection of tools to download comics from comicmafia.to')
     )
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument(
-        '--version', action='version', version='comics-dl ' + __version__, help='Print program version and exit'
+        '--version', action='version', version='atom-dl ' + __version__, help='Print program version and exit'
     )
 
     group.add_argument(

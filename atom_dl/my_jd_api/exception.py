@@ -1,6 +1,6 @@
 """Exceptions of the MyJDownloader API."""
 
-from comics_dl.my_jd_api.const import (
+from atom_dl.my_jd_api.const import (
     EXCEPTION_API_COMMAND_NOT_FOUND,
     EXCEPTION_API_INTERFACE_NOT_FOUND,
     EXCEPTION_AUTH_FAILED,

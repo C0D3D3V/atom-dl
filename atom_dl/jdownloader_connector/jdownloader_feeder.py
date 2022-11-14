@@ -4,7 +4,7 @@ import logging
 import requests
 
 from requests.exceptions import RequestException
-from comics_dl.download_service.path_tools import PathTools
+from atom_dl.download_service.path_tools import PathTools
 
 
 class JDownloaderFeeder:

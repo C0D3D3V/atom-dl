@@ -1,5 +1,5 @@
-from comics_dl.my_jd_api import MyJdApi
-from comics_dl.config_service.config_helper import ConfigHelper
+from atom_dl.my_jd_api import MyJdApi
+from atom_dl.config_service.config_helper import ConfigHelper
 
 
 class DecryptionRetryer:
@@ -29,7 +29,7 @@ class DecryptionRetryer:
         """
 
         jd = MyJdApi()
-        jd.set_app_key("Comics-Downloader")
+        jd.set_app_key("Atom-Downloader")
         config = ConfigHelper()
         username = config.get_my_jd_username()
         password = config.get_my_jd_password()

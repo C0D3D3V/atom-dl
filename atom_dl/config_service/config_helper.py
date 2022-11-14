@@ -32,11 +32,11 @@ class ConfigHelper:
 
     def __init__(self):
         self._whole_config = {}
-        self.config_path = str(Path(self.get_user_config_directory()) / 'comics-dl' / 'config.json')
+        self.config_path = str(Path(self.get_user_config_directory()) / 'atom-dl' / 'config.json')
         if self.is_present():
             self.load()
         else:
-            config_dir_path = str(Path(self.get_user_config_directory()) / 'comics-dl')
+            config_dir_path = str(Path(self.get_user_config_directory()) / 'atom-dl')
             if not os.path.exists(config_dir_path):
                 try:
                     os.makedirs(config_dir_path)

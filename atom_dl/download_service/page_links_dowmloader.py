@@ -11,7 +11,7 @@ import requests
 from lxml import etree
 from requests.exceptions import RequestException
 
-from comics_dl.config_service.config_helper import ConfigHelper
+from atom_dl.config_service.config_helper import ConfigHelper
 
 
 class PageLinksDownloader:

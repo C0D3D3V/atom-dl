@@ -8,7 +8,7 @@ from pathlib import Path
 import zipfile
 import rarfile
 
-from comics_dl.download_service.path_tools import PathTools
+from atom_dl.download_service.path_tools import PathTools
 
 
 class ArchiveExtractor:

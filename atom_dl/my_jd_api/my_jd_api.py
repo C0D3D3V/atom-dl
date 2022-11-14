@@ -11,7 +11,7 @@ import base64
 import requests
 from Cryptodome.Cipher import AES
 
-from comics_dl.my_jd_api.exception import (
+from atom_dl.my_jd_api.exception import (
     MYJDApiException,
     MYJDConnectionException,
     MYJDDecodeException,

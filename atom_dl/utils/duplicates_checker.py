@@ -5,7 +5,7 @@ import hashlib
 
 from pathlib import Path
 
-from comics_dl.download_service.path_tools import PathTools
+from atom_dl.download_service.path_tools import PathTools
 
 
 class DuplicatesChecker:

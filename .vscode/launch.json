@@ -2,15 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Comics Downloader",
+            "name": "Atom Downloader",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/comics-dl",
+            "program": "${workspaceFolder}/atom-dl",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/debugging-comics/",
+            "cwd": "${workspaceFolder}/debugging-atom-dl/",
             "args": [
                 "-v",
-                "-ea",
             ],
             "justMyCode": false
         }

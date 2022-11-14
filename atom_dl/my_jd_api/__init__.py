@@ -1,5 +1,5 @@
-from comics_dl.my_jd_api.my_jd_api import MyJdApi
-from comics_dl.my_jd_api.exception import (
+from atom_dl.my_jd_api.my_jd_api import MyJdApi
+from atom_dl.my_jd_api.exception import (
     MYJDException,
     MYJDConnectionException,
     MYJDDeviceNotFoundException,

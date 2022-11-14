@@ -2,8 +2,8 @@ from os import path
 from setuptools import setup, find_packages
 
 
-# Get the version from comics_dl/version.py without importing the package
-exec(compile(open('comics_dl/version.py').read(), 'comics_dl/version.py', 'exec'))
+# Get the version from atom_dl/version.py without importing the package
+exec(compile(open('atom_dl/version.py').read(), 'atom_dl/version.py', 'exec'))
 
 
 def readme():
@@ -13,12 +13,12 @@ def readme():
 
 
 setup(
-    name='comics-dl',
+    name='atom-dl',
     version=__version__,
     description='A collection of tools to download comics from comicmafia.to',
     long_description=readme(),
     long_description_content_type='text/markdown',
-    url='https://github.com/user/Comics-Downloader',
+    url='https://github.com/user/Atom-Downloader',
     author='user',
     author_email=' user@mag-keinen-spam.de',
     license='MIT',
@@ -26,7 +26,7 @@ setup(
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            'comics-dl = comics_dl.main:main',
+            'atom-dl = atom_dl.main:main',
         ],
     },
     python_requires='>=3.6',

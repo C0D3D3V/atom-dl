@@ -1,7 +1,7 @@
 import os
 import json
 
-from comics_dl.download_service.path_tools import PathTools
+from atom_dl.download_service.path_tools import PathTools
 
 
 class DescriptionsGenerator:
