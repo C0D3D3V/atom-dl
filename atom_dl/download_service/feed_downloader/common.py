@@ -1,11 +1,12 @@
 from datetime import datetime
+from itertools import cycle
+from typing import List, Dict
 
 import asyncio
 import aiohttp
 import requests
 
 from lxml import etree
-from typing import List, Dict
 
 from requests.exceptions import RequestException
 
@@ -41,9 +42,7 @@ class FeedDownloader:
     def init(self, until_date: datetime):
         self.until_date = until_date
 
-    async def fetch_page_and_extract(
-        self, idx: int, max_links_num: int, link: str, extractor_method, result_list: List[Dict]
-    ):
+    async def fetch_page_and_extract(self, link: str, extractor_method, result_list: List[Dict], status_dict: Dict):
         async with self.sem:
             async with aiohttp.ClientSession() as session:
                 async with session.get(link, timeout=0) as response:
@@ -52,18 +51,41 @@ class FeedDownloader:
                         result = extractor_method(link, page_text)
                         if result is not None:
                             result_list.append(result)
-                            print(f'Extracted [{idx + 1:04}/{max_links_num:04}] {link}')
+                            status_dict['done'] += 1
                         else:
-                            print(f'Failed to extract [{idx + 1:04}/{max_links_num:04}] {link}')
+                            print(f'\r\033[KFailed to extract {link}')
+                            status_dict['failed'] += 1
+
+    async def _real_fetch_all_pages_and_extract(
+        self, page_links_list: List, extractor_method, result_list: List[Dict], status_dict: Dict
+    ):
+        await asyncio.gather(
+            *[
+                self.fetch_page_and_extract(page_link, extractor_method, result_list, status_dict)
+                for page_link in page_links_list
+            ]
+        )
 
     async def fetch_all_pages_and_extract(self, page_links_list: List, extractor_method, result_list: List[Dict]):
         max_links_num = len(page_links_list)
-        await asyncio.gather(
-            *[
-                self.fetch_page_and_extract(idx, max_links_num, page_link, extractor_method, result_list)
-                for idx, page_link in enumerate(page_links_list)
-            ]
+        status_dict = {
+            'done': 0,
+            'failed': 0,
+            'total': max_links_num,
+            'stop': False,
+            'preamble': 'Extracting metadata',
+            'done_msg': 'All metadata are extracted!',
+        }
+        await asyncio.wait(
+            [
+                asyncio.create_task(
+                    self._real_fetch_all_pages_and_extract(page_links_list, extractor_method, result_list, status_dict)
+                ),
+                asyncio.create_task(self.display_status(status_dict)),
+            ],
+            return_when=asyncio.FIRST_COMPLETED,
         )
+        status_dict['stop'] = True
 
     async def fetch_page(self, link, download_path):
         async with self.sem:
@@ -96,7 +118,7 @@ class FeedDownloader:
 
         return int(result[-1])
 
-    async def crawl_atom_page_links(self, link: str, page_id: int, max_page_num: int, page_links_list: List):
+    async def crawl_atom_page_links(self, link: str, page_links_list: List, status_dict: Dict):
         async with self.sem:
             async with aiohttp.ClientSession() as session:
                 async with session.get(link, timeout=0) as response:
@@ -117,28 +139,64 @@ class FeedDownloader:
                                 elif len(published_nodes) > 0:
                                     post_date = datetime.strptime(published_nodes[0], self.atom_time_format)
                                 else:
-                                    print(f'Failed to parse date for entry on [{page_id:04}/{max_page_num:04}] {link}')
+                                    print(f'Failed to parse date for entry on {link}')
                                     continue
 
                                 if post_date.timestamp() > self.until_date.timestamp():
                                     for page_link in page_link_nodes:
                                         page_links_list.append(page_link)
+                            status_dict['done'] += 1
 
-                            print(f'Crawled [{page_id:04}/{max_page_num:04}] {link}')
                         except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
-                            print(f'Failed to crawl [{page_id:04}/{max_page_num:04}] {link}: {error}')
+                            print(f'\r\033[KFailed to crawl {link}: {error}')
+                            status_dict['failed'] += 1
 
-    async def crawl_all_atom_page_links(self, feed_url: str, max_page_num: int, page_links_list: List):
+    async def _real_crawl_all_atom_page_links(
+        self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
+    ):
         await asyncio.gather(
             *[
-                self.crawl_atom_page_links(
-                    feed_url.format(page_id=page_id),
-                    page_id,
-                    max_page_num,
-                    page_links_list,
-                )
+                self.crawl_atom_page_links(feed_url.format(page_id=page_id), page_links_list, status_dict)
                 for page_id in range(1, int(max_page_num) + 1)
             ]
+        )
+
+    async def crawl_all_atom_page_links(self, feed_url: str, max_page_num: int, page_links_list: List):
+        status_dict = {
+            'done': 0,
+            'failed': 0,
+            'total': max_page_num,
+            'stop': False,
+            'preamble': 'Crawling page links',
+            'done_msg': 'All page links are crawled!',
+        }
+        await asyncio.wait(
+            [
+                asyncio.create_task(
+                    self._real_crawl_all_atom_page_links(feed_url, max_page_num, page_links_list, status_dict)
+                ),
+                asyncio.create_task(self.display_status(status_dict)),
+            ],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        status_dict['stop'] = True
+
+    async def display_status(self, status_dict):
+        spinner = cycle('/|\-')
+
+        while status_dict.get('done', 0) + status_dict.get('failed', 0) < status_dict.get(
+            'total', 0
+        ) and not status_dict.get('stop', True):
+            print(
+                f"\r\033[K{status_dict.get('preamble', 'Done: ')}: "
+                + f"{status_dict.get('done', 0):04}/{status_dict.get('total', 0):04} {next(spinner)}",
+                end='',
+            )
+            await asyncio.sleep(0.3)
+        print(
+            f"\r\033[K{status_dict.get('done_msg', 'Done: ')} Successful: "
+            + f"{status_dict.get('done', 0):04}/{status_dict.get('total', 0):04} "
+            + f"Failed: {status_dict.get('failed', 0):04}/{status_dict.get('total', 0):04}"
         )
 
     @classmethod

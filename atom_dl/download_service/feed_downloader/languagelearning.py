@@ -25,7 +25,7 @@ class LanguagelearningFD(FeedDownloader):
 
         entry_nodes = root.xpath('//main//article//div[@class="inside-article"]')
         if len(entry_nodes) != 1:
-            print(f"Error in {page_link}, entry found!")
+            print(f"\r\033[KError in {page_link}, entry found!")
             return None
 
         entry = entry_nodes[0]
@@ -40,7 +40,7 @@ class LanguagelearningFD(FeedDownloader):
         category_nodes = entry.xpath('.//a[@rel="category tag"]/text()')
 
         if len(title_nodes) == 0:
-            print(f"Error in {page_link}, no title found")
+            print(f"\r\033[KError in {page_link}, no title found")
             return None
         title = title_nodes[0]
 
@@ -54,6 +54,8 @@ class LanguagelearningFD(FeedDownloader):
         image_link = None
         if len(image_link_nodes) >= 1:
             image_link = image_link_nodes[0]
+            if image_link.startswith('/'):
+                image_link = 'https://languagelearning.site' + image_link
 
         description = None
         if len(description_nodes) > 0:
@@ -75,8 +77,31 @@ class LanguagelearningFD(FeedDownloader):
         if extra_info is not None:
             for line in extra_info.split('\n'):
                 if line.startswith('Size'):
-                    size_info = line.split(':')[-1].strip()
-                    size_info = size_info.split(' in')[0]
+                    size_info = line.split('Size:')[-1].strip()
+
+        size_in_mb = None
+        if size_info is not None:
+            size_parts = size_info.split(', ')
+            total = 0
+            for size_part in size_parts:
+                try:
+                    only_size = size_part.split(' (')[0]
+                    only_size = only_size.replace(',', '.')
+                    only_size = only_size.replace(' ', '')
+                    only_size = only_size.upper().strip()
+                    if only_size.endswith('KB'):
+                        only_size = only_size[:-2]
+                        total += float(only_size) / 1000
+                    if only_size.endswith('MB'):
+                        only_size = only_size[:-2]
+                        total += float(only_size)
+                    elif only_size.endswith('GB'):
+                        only_size = only_size[:-2]
+                        total += float(only_size) * 1000
+                except ValueError:
+                    pass
+            if total > 0:
+                size_in_mb = total
 
         download_links = []
         for link in download_link_nodes:
@@ -87,7 +112,7 @@ class LanguagelearningFD(FeedDownloader):
                 if urlparse(clean_link).netloc not in self.forbidden_hoster:
                     download_links.append(clean_link)
         if len(download_links) == 0:
-            print(f"Error in {page_link} for {title}, no download link found")
+            print(f"\r\033[KError in {page_link} for {title}, no download link found")
             return None
 
         return {
@@ -98,6 +123,7 @@ class LanguagelearningFD(FeedDownloader):
             "description": description,
             "image_link": image_link,
             "size_info": size_info,
+            "size_in_mb": size_in_mb,
             "download_links": download_links,
             "categories": category_nodes,
         }
