@@ -96,4 +96,4 @@ class ConfigHelper:
         try:
             return self.get_property('last_crawled_date')
         except ValueError:
-            return None
+            return []

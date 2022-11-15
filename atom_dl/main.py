@@ -7,7 +7,6 @@ import logging
 import argparse
 import traceback
 
-from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 import atom_dl.utils.process_lock as process_lock
@@ -16,14 +15,13 @@ from atom_dl.utils.logger import Log
 from atom_dl.version import __version__
 from atom_dl.extractor_service.metadata_extractor import MetadataExtrator
 from atom_dl.extractor_service.metadata_cleaner import MetadataCleaner
-from atom_dl.download_service.page_links_dowmloader import PageLinksDownloader
+from atom_dl.download_service.feed_updater import FeedUpdater
 from atom_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
 from atom_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
 from atom_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
 from atom_dl.utils.duplicates_checker import DuplicatesChecker
 from atom_dl.extractor_service.descriptions_generator import DescriptionsGenerator
 from atom_dl.utils.hash_generator import HashGenerator
-from atom_dl.config_service.config_helper import ConfigHelper
 from atom_dl.jdownloader_connector.finished_remover import FinishedRemover
 from atom_dl.utils.archive_extractor import ArchiveExtractor
 
@@ -42,10 +40,10 @@ class ReRaiseOnError(logging.StreamHandler):
             raise record.exception
 
 
-def run_download_pages(storage_path: str, categories: [str], until_date: datetime, skip_cert_verify: bool):
+def run_download_pages(storage_path: str, skip_cert_verify: bool):
     Log.debug('Start downloading all Pages...')
-    crawler = PageLinksDownloader(storage_path, categories, until_date, skip_cert_verify)
-    crawler.run()
+    feed_updater = FeedUpdater(storage_path, skip_cert_verify)
+    feed_updater.update()
     Log.success('Downloading all Pages finished')
 
 
@@ -301,18 +299,6 @@ def get_parser():
     )
 
     parser.add_argument(
-        '-ud',
-        '--until-date',
-        default=None,
-        type=str,
-        help=(
-            'Restricts the download of category pages.'
-            + ' Only pages that contain entries with a date newer than the specified date are downloaded.'
-            + ' Date format needs to be: YEAR-MONTH-DAY'
-        ),
-    )
-
-    parser.add_argument(
         '-cat',
         '--categories',
         nargs='*',
@@ -383,29 +369,18 @@ def main(args=None):
     else:
         storage_path = args.path
     setup_logger(storage_path, args.verbose)
-    until_date = args.until_date
     categories = args.categories
     skip_cert_verify = args.skip_cert_verify
 
     Log.debug(f'Selected categories: {str(categories)}')
     logging.debug('Selected categories: %s', categories)
 
-    if until_date is None:
-        config = ConfigHelper()
-        until_date = config.get_last_crawled_date()
-
-    parsed_date = None
-    if until_date is not None:
-        parsed_date = datetime.strptime(until_date, "%Y-%m-%d")
-        Log.debug(f'Selected latest date: {parsed_date.strftime("%Y-%m-%d")}')
-        logging.debug('Selected latest date: %s', parsed_date.strftime("%Y-%m-%d"))
-
     try:
         if not IS_DEBUG:
             process_lock.lock(storage_path)
 
         if args.download_pages:
-            run_download_pages(storage_path, categories, parsed_date, skip_cert_verify)
+            run_download_pages(storage_path, skip_cert_verify)
         elif args.extract_metadata:
             run_extract_metadata(storage_path, categories)
         elif args.clean_metadata is not None and len(args.clean_metadata) == 1:
