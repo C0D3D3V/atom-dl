@@ -44,20 +44,6 @@ def run_download_pages(storage_path: str, skip_cert_verify: bool):
     Log.success('Downloading all Pages finished')
 
 
-def run_extract_metadata(storage_path: str, categories: [str]):
-    Log.debug('Start extracting metadata...')
-    extrator = MetadataExtrator(storage_path, categories)
-    extrator.run()
-    Log.success('Extracting metadata finished')
-
-
-def run_clean_metadata(storage_path: str, metadata_json_path: str):
-    Log.debug('Start cleaning metadata... this will take up to 2 min')
-    cleaner = MetadataCleaner(storage_path, metadata_json_path)
-    cleaner.run()
-    Log.success('Cleaning metadata finished')
-
-
 def run_send_to_jdownloader(storage_path: str, metadata_json_path: str, categories: [str], skip_cert_verify):
     Log.debug('Start sending metadata to Jdownloader...')
     sender = JDownloaderFeeder(storage_path, metadata_json_path, categories, skip_cert_verify)
@@ -91,13 +77,6 @@ def run_check_for_duplicates(storage_path: str, metadata_json_path: str, categor
     checker = DuplicatesChecker(storage_path, metadata_json_path, categories)
     checker.run()
     Log.success('Checking for duplicates per book link finished')
-
-
-def run_add_description_files(storage_path: str, metadata_json_path: str, categories: [str]):
-    Log.debug('Start adding descriptions to all comics...')
-    generator = DescriptionsGenerator(storage_path, metadata_json_path, categories)
-    generator.run()
-    Log.success('Adding descriptions to all comics finished')
 
 
 def run_generate_hashes_list(storage_path: str, metadata_json_path: str, categories: [str]):
@@ -201,22 +180,6 @@ def get_parser():
     )
 
     group.add_argument(
-        '-em',
-        '--extract-metadata',
-        action='store_true',
-        help=('Extract the metadata from the downloaded pages'),
-    )
-
-    group.add_argument(
-        '-cm',
-        '--clean-metadata',
-        default=None,
-        nargs=1,
-        type=_file_path,
-        help=('Clean the metadata json from duplicated entires'),
-    )
-
-    group.add_argument(
         '-stj',
         '--send-to-jdownloader',
         default=None,
@@ -255,15 +218,6 @@ def get_parser():
         nargs=1,
         type=_file_path,
         help=('Check downloads for duplicates per book link for all comics in a given metadata json'),
-    )
-
-    group.add_argument(
-        '-adf',
-        '--add-description-files',
-        default=None,
-        nargs=1,
-        type=_file_path,
-        help=('Add all description files to all book folders for all comics in a given metadata json'),
     )
 
     group.add_argument(
@@ -378,10 +332,6 @@ def main(args=None):
 
         if args.download_pages:
             run_download_pages(storage_path, skip_cert_verify)
-        elif args.extract_metadata:
-            run_extract_metadata(storage_path, categories)
-        elif args.clean_metadata is not None and len(args.clean_metadata) == 1:
-            run_clean_metadata(storage_path, args.clean_metadata[0])
         elif args.send_to_jdownloader is not None and len(args.send_to_jdownloader) == 1:
             run_send_to_jdownloader(storage_path, args.send_to_jdownloader[0], categories, skip_cert_verify)
         elif args.retry_decryption_of_links:
@@ -392,8 +342,6 @@ def main(args=None):
             run_extract_link_list(storage_path, args.extract_link_list[0])
         elif args.check_for_duplicates is not None and len(args.check_for_duplicates) == 1:
             run_check_for_duplicates(storage_path, args.check_for_duplicates[0], categories)
-        elif args.add_description_files is not None and len(args.add_description_files) == 1:
-            run_add_description_files(storage_path, args.add_description_files[0], categories)
         elif args.generate_hashes_list is not None and len(args.generate_hashes_list) == 1:
             run_generate_hashes_list(storage_path, args.generate_hashes_list[0], categories)
         elif args.extract_archives:
