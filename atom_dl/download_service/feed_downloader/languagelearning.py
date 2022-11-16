@@ -83,13 +83,13 @@ class LanguagelearningFD(FeedDownloader):
 
         size_in_mb = None
         if size_info is not None:
-            size_parts = size_info.split(', ')
+            size_parts = size_info.split(', ')  # multiple parts
             total = 0
             for size_part in size_parts:
                 try:
-                    only_size = size_part.split(' (')[0]
-                    only_size = only_size.replace(',', '.')
-                    only_size = only_size.replace(' ', '')
+                    only_size = size_part.split(' (')[0]  # (rarred xMB) or (xMB rarred)
+                    only_size = only_size.replace(',', '.')  # fix dezimal point
+                    only_size = only_size.replace(' ', '')  # remove spaces
                     only_size = only_size.upper().strip()
                     if only_size.endswith('KB'):
                         only_size = only_size[:-2]

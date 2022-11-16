@@ -35,6 +35,8 @@ class FeedDownloader:
         'www.share-online.biz',
         'terafile.co',
         'www.terafile.co',
+        'comicmafia.to',
+        'www.comicmafia.to',
     ]
 
     def __init__(self):
@@ -65,6 +67,9 @@ class FeedDownloader:
                         else:
                             print(f'\r\033[KFailed to extract {link}')
                             status_dict['failed'] += 1
+                    else:
+                        print(f'\r\033[KInvalid response ({response.status}) for {link}')
+                        status_dict['failed'] += 1
 
     async def _real_fetch_all_pages_and_extract(
         self, page_links_list: List, extractor_method, result_list: List[Dict], status_dict: Dict
@@ -74,10 +79,11 @@ class FeedDownloader:
                 *[
                     self.fetch_page_and_extract(page_idx, page_link, extractor_method, result_list, status_dict)
                     for page_idx, page_link in enumerate(page_links_list)
-                ]
+                ],
+                return_exceptions=True,
             )
         except Exception:
-            print(traceback.format_exc())
+            traceback.print_exc()
 
     async def fetch_all_pages_and_extract(self, page_links_list: List, extractor_method, result_list: List[Dict]):
         max_links_num = len(page_links_list)
@@ -92,19 +98,6 @@ class FeedDownloader:
             ],
         )
         status_dict['stop'] = True
-
-    async def fetch_page(self, link, download_path):
-        async with self.sem:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(link, timeout=0) as response:
-                    if response.ok:
-                        try:
-                            with open(download_path, 'wb') as fd:
-                                async for chunk in response.content.iter_chunked(8192):
-                                    fd.write(chunk)
-                            print(f'Downlaoded {link}')
-                        except FileNotFoundError:
-                            print(f'Failed to download {link}')
 
     def get_max_page_for(self, url, pattern):
         try:
@@ -169,16 +162,22 @@ class FeedDownloader:
                         except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
                             print(f'\r\033[KFailed to crawl {link}: {error}')
                             status_dict['failed'] += 1
+                    else:
+                        print(f'\r\033[KInvalid response ({response.status}) for {link}')
+                        status_dict['failed'] += 1
 
     async def _real_crawl_all_atom_page_links(
         self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
     ):
-        await asyncio.gather(
-            *[
-                self.crawl_atom_page_links(page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict)
-                for page_idx in range(1, int(max_page_num) + 1)
-            ]
-        )
+        try:
+            await asyncio.gather(
+                *[
+                    self.crawl_atom_page_links(page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict)
+                    for page_idx in range(1, int(max_page_num) + 1)
+                ]
+            )
+        except Exception:
+            traceback.print_exc()
 
     def get_status_dict(self, total: int, preamble: str, done_msg: str):
         return {

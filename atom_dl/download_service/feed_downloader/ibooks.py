@@ -122,8 +122,8 @@ class IbooksFD(FeedDownloader):
         max_page = self.get_max_page_for(self.max_page_url, self.max_page_pattern)
 
         # Collect all links that needs to be downloaded for metadata extraction
-        page_links_list = ['https://ibooks.to/feed/atom/']
-        for page_id in range(2, max_page + 1):
+        page_links_list = []
+        for page_id in range(1, max_page + 1):
             page_links_list.append(self.feed_url.format(page_id=page_id))
 
         # Download and extract all pages

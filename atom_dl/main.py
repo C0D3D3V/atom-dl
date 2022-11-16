@@ -13,7 +13,6 @@ import atom_dl.utils.process_lock as process_lock
 
 from atom_dl.utils.logger import Log
 from atom_dl.version import __version__
-from atom_dl.extractor_service.metadata_extractor import MetadataExtrator
 from atom_dl.download_service.feed_updater import FeedUpdater
 from atom_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
 from atom_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
