@@ -14,13 +14,11 @@ import atom_dl.utils.process_lock as process_lock
 from atom_dl.utils.logger import Log
 from atom_dl.version import __version__
 from atom_dl.extractor_service.metadata_extractor import MetadataExtrator
-from atom_dl.extractor_service.metadata_cleaner import MetadataCleaner
 from atom_dl.download_service.feed_updater import FeedUpdater
 from atom_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
 from atom_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
 from atom_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
 from atom_dl.utils.duplicates_checker import DuplicatesChecker
-from atom_dl.extractor_service.descriptions_generator import DescriptionsGenerator
 from atom_dl.utils.hash_generator import HashGenerator
 from atom_dl.jdownloader_connector.finished_remover import FinishedRemover
 from atom_dl.utils.archive_extractor import ArchiveExtractor

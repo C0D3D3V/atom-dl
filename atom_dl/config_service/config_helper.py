@@ -1,7 +1,9 @@
 import os
 import json
 
-from pathlib import Path
+from typing import Dict
+
+from atom_dl.utils.path_tools import PathTools
 
 
 class ConfigHelper:
@@ -9,40 +11,13 @@ class ConfigHelper:
     Handles the saving, formatting and loading of the local configuration.
     """
 
-    @staticmethod
-    def get_user_config_directory():
-        """Returns a platform-specific root directory for user config settings."""
-        # On Windows, prefer %LOCALAPPDATA%, then %APPDATA%, since we can expect the
-        # AppData directories to be ACLed to be visible only to the user and admin
-        # users (https://stackoverflow.com/a/7617601/1179226). If neither is set,
-        # return None instead of falling back to something that may be world-readable.
-        if os.name == "nt":
-            appdata = os.getenv("LOCALAPPDATA")
-            if appdata:
-                return appdata
-            appdata = os.getenv("APPDATA")
-            if appdata:
-                return appdata
-            return None
-        # On non-windows, use XDG_CONFIG_HOME if set, else default to ~/.config.
-        xdg_config_home = os.getenv("XDG_CONFIG_HOME")
-        if xdg_config_home:
-            return xdg_config_home
-        return os.path.join(os.path.expanduser("~"), ".config")
-
     def __init__(self):
         self._whole_config = {}
-        self.config_path = str(Path(self.get_user_config_directory()) / 'atom-dl' / 'config.json')
+        self.config_path = PathTools.get_path_of_config_json()
         if self.is_present():
             self.load()
         else:
-            config_dir_path = str(Path(self.get_user_config_directory()) / 'atom-dl')
-            if not os.path.exists(config_dir_path):
-                try:
-                    os.makedirs(config_dir_path)
-                except FileExistsError:
-                    pass
-                self._save()
+            self._save()
 
     def is_present(self) -> bool:
         # Tests if a configuration file exists
@@ -92,8 +67,15 @@ class ConfigHelper:
     def get_my_jd_device(self) -> str:
         return self.get_property('my_jd_device')
 
-    def get_last_crawled_date(self) -> str:
+    def get_last_feed_update_dates(self) -> Dict:
         try:
-            return self.get_property('last_crawled_date')
+            return self.get_property('last_feed_update_dates')
         except ValueError:
-            return []
+            return {}
+
+    # ---------------------------- SETTERS ------------------------------------
+
+    def set_last_feed_update_dates(self, feed: str, date_Str: str):
+        last_feed_update_dates = self.get_last_feed_update_dates()
+        last_feed_update_dates[feed] = date_Str
+        self.set_property('last_feed_update_dates', last_feed_update_dates)

@@ -188,7 +188,7 @@ class MetadataExtrator:
                     html_content_nodes = comic.xpath('.//atom:content/text()', namespaces=self.xml_ns)
 
                     if len(html_content_nodes) == 0:
-                        print(f"Error in {file_path} for idx {comic_idx}, no conent found")
+                        print(f"Error in {file_path} for idx {comic_idx}, no content found")
                         continue
                     html_content = html_content_nodes[0].strip()
                     content_root = lxml.html.fromstring(html_content)

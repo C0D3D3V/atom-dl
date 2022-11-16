@@ -1,7 +1,7 @@
 import re
-import json
 import asyncio
 
+from typing import List, Dict
 from urllib.parse import urlparse
 
 import lxml.html
@@ -10,22 +10,24 @@ from atom_dl.download_service.feed_downloader.common import FeedDownloader
 
 
 class LanguagelearningFD(FeedDownloader):
+    max_page_url = 'https://languagelearning.site/'
+    max_page_pattern = re.compile(r'<a class="page-numbers" href="https://languagelearning.site/page/(\d+)/">')
+    feed_url = 'https://languagelearning.site/feed/atom/?paged={page_id}'
 
-    languagelearning_max_page_url = 'https://languagelearning.site/'
-    languagelearning_max_page_patern = re.compile(
-        r'<a class="page-numbers" href="https://languagelearning.site/page/(\d+)/">'
-    )
-    languagelearning_feed_url = 'https://languagelearning.site/feed/atom/?paged={page_id}'
-
-    def page_metadata_extractor(self, page_link, page_text):
+    def page_metadata_extractor(self, page_idx: int, page_link: str, page_text: str, status_dict: Dict):
+        """
+        Date filtering is done in crawl_all_atom_page_links
+        thats why we do not need to use page_idx and status_dict here
+        """
         try:
             root = lxml.html.fromstring(page_text)
-        except ValueError:
+        except ValueError as error:
+            print(f"\r\033[KError in {page_link}, could not parse html! {error}")
             return None
 
         entry_nodes = root.xpath('//main//article//div[@class="inside-article"]')
         if len(entry_nodes) != 1:
-            print(f"\r\033[KError in {page_link}, entry found!")
+            print(f"\r\033[KError in {page_link}, no entry found!")
             return None
 
         entry = entry_nodes[0]
@@ -128,35 +130,21 @@ class LanguagelearningFD(FeedDownloader):
             "categories": category_nodes,
         }
 
-    def _real_download_feed(self):
+    def _real_download_latest_feed(self) -> List[Dict]:
         loop = asyncio.get_event_loop()
 
         # On the wordpress side there are 5 entries per page and in rss there are also 5 entries per page
-        max_page_languagelearning = self.get_max_page_for(
-            self.languagelearning_max_page_url, self.languagelearning_max_page_patern
-        )
+        max_page = self.get_max_page_for(self.max_page_url, self.max_page_pattern)
 
         # Collect all links that needs to be downloaded for metadata extraction
         page_links_list = []
-        loop.run_until_complete(
-            self.crawl_all_atom_page_links(self.languagelearning_feed_url, max_page_languagelearning, page_links_list)
-        )
+        loop.run_until_complete(self.crawl_all_atom_page_links(self.feed_url, max_page, page_links_list))
 
         # Download and extract all pages
         result_list = []
-        loop.run_until_complete(
-            self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list)
-        )
+        if len(page_links_list) > 0:
+            loop.run_until_complete(
+                self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list)
+            )
 
-        # Serializing json
-        json_object = json.dumps(result_list, indent=4)
-
-        # Writing to sample.json
-        with open("languagelearning.json", "w", encoding='utf-8') as outfile:
-            outfile.write(json_object)
-        print(len(result_list))
-
-        # one_day_before = date.today() - timedelta(days=1)
-        # print(f'Setting last date to {one_day_before.strftime("%Y-%m-%d")}')
-        # config = ConfigHelper()
-        # config.set_property('last_crawled_date', one_day_before.strftime("%Y-%m-%d"))
+        return result_list

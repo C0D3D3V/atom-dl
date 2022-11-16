@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from atom_dl.my_jd_api import MyJdApi
-from atom_dl.download_service.path_tools import PathTools
+from atom_dl.utils.path_tools import PathTools
 from atom_dl.config_service.config_helper import ConfigHelper
 
 
