@@ -1,3 +1,4 @@
+import re
 import time
 import traceback
 
@@ -25,6 +26,7 @@ class FeedDownloader:
 
     xml_ns = {'atom': 'http://www.w3.org/2005/Atom'}
     default_time_format = "%Y-%m-%dT%H:%M:%S%z"  # works for atom and WordPress HTML
+    size_pattern = re.compile(r"(\d+(?:[,.]\d+)?) ?(?:[MGK]B|[mgk]b)")
 
     forbidden_hoster = [
         'megacache.net',
@@ -172,7 +174,9 @@ class FeedDownloader:
         try:
             await asyncio.gather(
                 *[
-                    self.crawl_atom_page_links(page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict)
+                    self.crawl_atom_page_links(
+                        page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict
+                    )
                     for page_idx in range(1, int(max_page_num) + 1)
                 ]
             )

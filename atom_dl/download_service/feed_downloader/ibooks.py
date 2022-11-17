@@ -60,6 +60,25 @@ class IbooksFD(FeedDownloader):
             if description == '':
                 description = None
 
+            size_info = None
+            size_in_mb = None
+            if description is not None:
+                # This size information is not always correct
+                # It is 100% wrong for magazines
+                # In very few cases the size is noted like: 89.21 + 124 MB (only the last part is captured)
+                matches = self.size_pattern.findall(description)
+                if len(matches) > 0:
+                    match = matches[0]
+                    only_size = match[0].replace(',', '.')
+                    only_unit = match[1].upper()
+                    size_info = f'{only_size} {only_unit}'
+                    if only_unit.endswith('KB'):
+                        size_in_mb = float(only_size) / 1000
+                    if only_unit.endswith('MB'):
+                        size_in_mb = float(only_size)
+                    elif only_unit.endswith('GB'):
+                        size_in_mb = float(only_size) * 1000
+
             if len(title_nodes) == 0:
                 print(f"\r\033[KError in {page_link} idx {idx}, no title found")
                 continue
@@ -109,6 +128,8 @@ class IbooksFD(FeedDownloader):
                     "updated_date": updated_date,
                     "description": description,
                     "image_link": image_link,
+                    "size_info": size_info,
+                    "size_in_mb": size_in_mb,
                     "download_links": download_links,
                     "categories": category_nodes,
                 }
