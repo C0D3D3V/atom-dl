@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 # Mirrored from https://github.com/mmarquezs/My.Jdownloader-API-Python-Library
+# API Documentation: https://my.jdownloader.org/developers
 import hashlib
 import hmac
 import json

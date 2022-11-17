@@ -105,6 +105,16 @@ class LanguagelearningFD(FeedDownloader):
             if total > 0:
                 size_in_mb = total
 
+        # It would be possible to detect child packags names example structures: view-source:https://languagelearning.site/french/les-loustics-2/
+        # <strong><br />
+        # livre, guide, audio<br />
+        # <a href="https://depositfiles.com/files/4jcrjjvqh" target="_blank" rel="noopener noreferrer">depositfiles</a><br />
+        # mediafire<br />
+        # cahier<br />
+        # <a href="https://depositfiles.com/files/11j5hoxp1" target="_blank" rel="noopener noreferrer">depositfiles</a><br />
+        # <a href="http://turbobit.net/0u0aiyns37ps.html" target="_blank" rel="noopener noreferrer">turbobit</a><br />
+        # </strong></p>
+
         download_links = []
         for link in download_link_nodes:
             if link not in download_links:

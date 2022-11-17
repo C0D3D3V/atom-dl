@@ -26,7 +26,7 @@ class FeedDownloader:
 
     xml_ns = {'atom': 'http://www.w3.org/2005/Atom'}
     default_time_format = "%Y-%m-%dT%H:%M:%S%z"  # works for atom and WordPress HTML
-    size_pattern = re.compile(r"(\d+(?:[,.]\d+)?) ?(?:[MGK]B|[mgk]b)")
+    size_pattern = re.compile(r"(\d+(?:[,.]\d+)?) ?([MGK]B|[mgk]b)")
 
     forbidden_hoster = [
         'megacache.net',

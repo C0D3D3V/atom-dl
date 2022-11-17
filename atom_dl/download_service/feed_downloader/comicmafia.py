@@ -50,6 +50,12 @@ class ComicmafiaFD(FeedDownloader):
             image_link_srcset_nodes = content_root.xpath('//div[@class="wp-block-image"]//img/@srcset')
             download_link_nodes = content_root.xpath('.//a[@target="_blank"]/@href')
             extra_info_nodes = content_root.xpath('//a[@target="_blank"]/text()')
+            package_content_list_nodes = content_root.xpath('.//strong//span')
+            description = None
+            if len(package_content_list_nodes) > 0:
+                description = '\n\n'.join(
+                    '\n'.join(description_node.xpath('.//text()')) for description_node in package_content_list_nodes
+                )
 
             if len(title_nodes) == 0:
                 print(f"\r\033[KError in {page_link} idx {idx}, no title found")
@@ -116,6 +122,7 @@ class ComicmafiaFD(FeedDownloader):
                     "page_link": that_page_link,
                     "published_date": published_date,
                     "updated_date": updated_date,
+                    "description": description,
                     "image_link": image_link,
                     "size_info": size_info,
                     "size_in_mb": size_in_mb,
