@@ -1,6 +1,7 @@
 from atom_dl.utils.logger import Log
 from atom_dl.config_helper import Config
 from atom_dl.job_creator import JobCreator
+from atom_dl.jobs_worker import JobsWorker
 from atom_dl.feed_updater import FeedUpdater
 
 from atom_dl.feed_extractor import gen_extractors
@@ -14,7 +15,6 @@ class LatestFeedProcessor:
         self.verify_tls_certs = verify_tls_certs
 
     def process(self):
-
         all_feed_info_extractors = gen_extractors(self.verify_tls_certs)
 
         config = Config()
@@ -48,3 +48,9 @@ class LatestFeedProcessor:
                         break
 
         Log.success('Collected all jobs')
+
+        if len(jobs) == 0:
+            return
+
+        worker = JobsWorker()
+        worker.handle_jobs(jobs)

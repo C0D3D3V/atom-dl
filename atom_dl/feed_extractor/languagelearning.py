@@ -25,6 +25,11 @@ class LanguagelearningFIE(FeedInfoExtractor):
             print(f"\r\033[KError in {page_link}, could not parse html! {error}")
             return None
 
+        page_id_nodes = root.xpath('//link[@rel="shortlink"]/@href')
+        page_id = None
+        if len(page_id_nodes) > 0:
+            page_id = page_id_nodes[0]
+
         entry_nodes = root.xpath('//main//article//div[@class="inside-article"]')
         if len(entry_nodes) != 1:
             print(f"\r\033[KError in {page_link}, no entry found!")
@@ -126,6 +131,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
         return {
             "title": title,
             "page_link": page_link,
+            "page_id": page_id,
             "published_date": published_date,
             "updated_date": updated_date,
             "description": description,

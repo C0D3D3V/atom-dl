@@ -15,8 +15,14 @@ class JobCreator:
         """
         Creates an job dictionary based on a given post
         """
+        job_dict = {
+            "title": post["title"],
+            "page_link": post["page_link"],
+            "page_id": post["page_id"],
+            "download_links": post["download_links"],
+        }
 
-        return post
+        return job_dict
 
     def process(self, post: Dict, extractor: FeedInfoExtractor) -> Dict:
         """

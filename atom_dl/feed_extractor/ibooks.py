@@ -37,6 +37,7 @@ class IbooksFIE(FeedInfoExtractor):
             updated_date_nodes = entry.xpath('.//atom:updated/text()', namespaces=self.xml_ns)
             published_date_nodes = entry.xpath('.//atom:published/text()', namespaces=self.xml_ns)
             page_link_nodes = entry.xpath('.//atom:link[@rel="alternate"]/@href', namespaces=self.xml_ns)
+            page_id_nodes = entry.xpath('.//atom:id/text()', namespaces=self.xml_ns)
             category_nodes = entry.xpath('.//atom:category/@term', namespaces=self.xml_ns)
             html_content_nodes = entry.xpath('.//atom:content/text()', namespaces=self.xml_ns)
 
@@ -118,13 +119,18 @@ class IbooksFIE(FeedInfoExtractor):
                 continue
 
             that_page_link = None
-            if len(page_link_nodes) >= 0:
+            if len(page_link_nodes) > 0:
                 that_page_link = page_link_nodes[0]
+
+            page_id = None
+            if len(page_id_nodes) > 0:
+                page_id = page_id_nodes[0]
 
             result_list.append(
                 {
                     "title": title,
                     "page_link": that_page_link,
+                    "page_id": page_id,
                     "published_date": published_date,
                     "updated_date": updated_date,
                     "description": description,
