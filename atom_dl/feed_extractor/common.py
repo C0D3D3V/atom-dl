@@ -9,13 +9,14 @@ from typing import List, Dict
 import asyncio
 import aiohttp
 import requests
+import urllib3
 
 from lxml import etree
 
 from requests.exceptions import RequestException
 
 
-class FeedDownloader:
+class FeedInfoExtractor:
     stdHeader = {
         'User-Agent': (
             'Mozilla/5.0 (Linux; Android 7.1.1; Moto G Play Build/NPIS26.48-43-2; wv) AppleWebKit/537.36'
@@ -41,9 +42,14 @@ class FeedDownloader:
         'www.comicmafia.to',
     ]
 
-    def __init__(self):
+    def __init__(self, verify_tls_certs: bool):
+        """
+        @param verify_tls_certs: if tls certificates should be verified
+        """
         self.sem = asyncio.Semaphore(10)
         self.until_date = datetime.fromtimestamp(0)
+        self.verify_tls_certs = verify_tls_certs
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def init(self, until_date: datetime):
         self.until_date = until_date
@@ -56,7 +62,7 @@ class FeedDownloader:
                 status_dict['skipped'] += 1
                 return
             async with aiohttp.ClientSession() as session:
-                async with session.get(link, timeout=0) as response:
+                async with session.get(link, timeout=0, verify_ssl=self.verify_tls_certs) as response:
                     if response.ok:
                         page_text = await response.text()
                         result = extractor_method(page_idx, link, page_text, status_dict)
@@ -107,6 +113,7 @@ class FeedDownloader:
                 url,
                 headers=self.stdHeader,
                 allow_redirects=True,
+                verify=self.verify_tls_certs,
                 timeout=60,
             )
         except RequestException as error:
@@ -125,7 +132,7 @@ class FeedDownloader:
                 status_dict['skipped'] += 1
                 return
             async with aiohttp.ClientSession() as session:
-                async with session.get(link, timeout=0) as response:
+                async with session.get(link, timeout=0, verify_ssl=self.verify_tls_certs) as response:
                     if response.ok:
                         try:
                             xml = await response.read()
@@ -228,23 +235,29 @@ class FeedDownloader:
         )
 
     @classmethod
-    def fd_key(cls):
-        """A string for getting the FeedDownloader with get_feed_downloader"""
-        return cls.__name__[:-2]
+    def fie_key(cls):
+        """A string for getting the FeedInfoExtractor with get_feed_extractor"""
+        return cls.__name__[:-3]
 
     def download_latest_feed(self) -> List[Dict]:
         startTime = time.time()
         startTimeStr = time.strftime("%d.%m %H:%M:%S", time.localtime(startTime))
-        print(f'{self.fd_key()} feed downloader started at {startTimeStr}')
+        print(f'{self.fie_key()} feed downloader started at {startTimeStr}')
 
         result_list = self._real_download_latest_feed()
 
         endTime = time.time()
         endTimeStr = time.strftime("%d%m %H:%M:%S", time.localtime(endTime))
         tookMs = endTime - startTime
-        print(f'{self.fd_key()} feed downloader finished at {endTimeStr} and took {tookMs:.2f}s')
+        print(f'{self.fie_key()} feed downloader finished at {endTimeStr} and took {tookMs:.2f}s')
 
         return result_list
+
+    @staticmethod
+    def add_extra_info(info_dict, extra_info):
+        '''Set the keys from extra_info in info dict if they are missing'''
+        for key, value in extra_info.items():
+            info_dict.setdefault(key, value)
 
     def _real_download_latest_feed(self) -> List[Dict]:
         """Real download process. Redefine in subclasses."""

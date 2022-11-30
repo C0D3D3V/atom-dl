@@ -23,11 +23,11 @@ class JDownloaderFeeder:
         storage_path: str,
         metadata_json_path: str,
         categories: [str],
-        skip_cert_verify: bool,
+        verify_tls_certs: bool,
     ):
         self.storage_path = storage_path
         self.metadata_json_path = metadata_json_path
-        self.skip_cert_verify = skip_cert_verify
+        self.verify_tls_certs = verify_tls_certs
         self.categories = categories
         self.url_base = 'http://127.0.0.1:9666/'
 
@@ -83,7 +83,7 @@ class JDownloaderFeeder:
                 jdownloader_url,
                 data=package_parameters,
                 headers=self.stdHeader,
-                verify=self.skip_cert_verify,
+                verify=self.verify_tls_certs,
                 timeout=60,
             )
         except RequestException as error:
@@ -101,7 +101,7 @@ class JDownloaderFeeder:
             response = requests.get(
                 f'{self.url_base}jdcheckjson',
                 headers=self.stdHeader,
-                verify=self.skip_cert_verify,
+                verify=self.verify_tls_certs,
                 timeout=60,
             )
         except RequestException as error:

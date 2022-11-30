@@ -6,10 +6,10 @@ from urllib.parse import urlparse
 
 import lxml.html
 
-from atom_dl.download_service.feed_downloader.common import FeedDownloader
+from atom_dl.feed_extractor.common import FeedInfoExtractor
 
 
-class LanguagelearningFD(FeedDownloader):
+class LanguagelearningFIE(FeedInfoExtractor):
     max_page_url = 'https://languagelearning.site/'
     max_page_pattern = re.compile(r'<a class="page-numbers" href="https://languagelearning.site/page/(\d+)/">')
     feed_url = 'https://languagelearning.site/feed/atom/?paged={page_id}'
@@ -61,7 +61,9 @@ class LanguagelearningFD(FeedDownloader):
 
         description = None
         if len(description_nodes) > 0:
-            description = "\n\n".join(p_node.text_content() for p_node in description_nodes)
+            description = "\n\n".join(
+                '\n'.join([elm.strip() for elm in p_node.xpath('.//text()')]) for p_node in description_nodes
+            )
             description = description.strip()
             if description == '':
                 description = None
@@ -105,15 +107,9 @@ class LanguagelearningFD(FeedDownloader):
             if total > 0:
                 size_in_mb = total
 
-        # It would be possible to detect child packags names example structures: view-source:https://languagelearning.site/french/les-loustics-2/
-        # <strong><br />
-        # livre, guide, audio<br />
-        # <a href="https://depositfiles.com/files/4jcrjjvqh" target="_blank" rel="noopener noreferrer">depositfiles</a><br />
-        # mediafire<br />
-        # cahier<br />
-        # <a href="https://depositfiles.com/files/11j5hoxp1" target="_blank" rel="noopener noreferrer">depositfiles</a><br />
-        # <a href="http://turbobit.net/0u0aiyns37ps.html" target="_blank" rel="noopener noreferrer">turbobit</a><br />
-        # </strong></p>
+        # It would be possible to detect child package names:
+        # Example view-source:https://languagelearning.site/french/les-loustics-2/
+        # Packages: "livre, guide, audio" and "cahier"
 
         download_links = []
         for link in download_link_nodes:
@@ -138,12 +134,13 @@ class LanguagelearningFD(FeedDownloader):
             "size_in_mb": size_in_mb,
             "download_links": download_links,
             "categories": category_nodes,
+            "extractor_key": self.fie_key(),
         }
 
     def _real_download_latest_feed(self) -> List[Dict]:
         loop = asyncio.get_event_loop()
 
-        # On the wordpress side there are 5 entries per page and in rss there are also 5 entries per page
+        # On the WordPress side there are 5 entries per page and in rss there are also 5 entries per page
         max_page = self.get_max_page_for(self.max_page_url, self.max_page_pattern)
 
         # Collect all links that needs to be downloaded for metadata extraction

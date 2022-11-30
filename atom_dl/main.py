@@ -13,7 +13,7 @@ import atom_dl.utils.process_lock as process_lock
 
 from atom_dl.utils.logger import Log
 from atom_dl.version import __version__
-from atom_dl.download_service.feed_updater import FeedUpdater
+from atom_dl.latest_feed_processor import LatestFeedProcessor
 from atom_dl.jdownloader_connector.jdownloader_feeder import JDownloaderFeeder
 from atom_dl.jdownloader_connector.decryption_retryer import DecryptionRetryer
 from atom_dl.jdownloader_connector.link_list_extractor import LinkListExtractor
@@ -37,16 +37,16 @@ class ReRaiseOnError(logging.StreamHandler):
             raise record.exception
 
 
-def run_download_pages(storage_path: str, skip_cert_verify: bool):
-    Log.debug('Start downloading all Pages...')
-    feed_updater = FeedUpdater(storage_path, skip_cert_verify)
-    feed_updater.update()
-    Log.success('Downloading all Pages finished')
+def run_process_latest_feed(verify_tls_certs: bool):
+    Log.debug('Start process latest feed...')
+    latest_feed_processor = LatestFeedProcessor(verify_tls_certs)
+    latest_feed_processor.process()
+    Log.success('Processing latest feed finished')
 
 
-def run_send_to_jdownloader(storage_path: str, metadata_json_path: str, categories: [str], skip_cert_verify):
+def run_send_to_jdownloader(storage_path: str, metadata_json_path: str, categories: [str], verify_tls_certs):
     Log.debug('Start sending metadata to Jdownloader...')
-    sender = JDownloaderFeeder(storage_path, metadata_json_path, categories, skip_cert_verify)
+    sender = JDownloaderFeeder(storage_path, metadata_json_path, categories, verify_tls_certs)
     sender.run()
     Log.success('Sending metadata to Jdownloader finished')
 
@@ -173,10 +173,10 @@ def get_parser():
     )
 
     group.add_argument(
-        '-dp',
-        '--download-pages',
+        '-plf',
+        '--process-latest-feed',
         action='store_true',
-        help=('Downloads all pages from all catergories if not other defined'),
+        help=('Downloads the latest feeds and runs the defined feed workers on it'),
     )
 
     group.add_argument(
@@ -291,7 +291,7 @@ def get_parser():
         '--skip-cert-verify',
         default=False,
         action='store_true',
-        help='If this flag is set, the SSL certificate '
+        help='If this flag is set, the SSL/TLS certificate '
         + 'is not verified. This option should only be used in '
         + 'non production environments.',
     )
@@ -321,7 +321,7 @@ def main(args=None):
         storage_path = args.path
     setup_logger(storage_path, args.verbose)
     categories = args.categories
-    skip_cert_verify = args.skip_cert_verify
+    verify_tls_certs = not args.skip_cert_verify
 
     Log.debug(f'Selected categories: {str(categories)}')
     logging.debug('Selected categories: %s', categories)
@@ -330,10 +330,10 @@ def main(args=None):
         if not IS_DEBUG:
             process_lock.lock(storage_path)
 
-        if args.download_pages:
-            run_download_pages(storage_path, skip_cert_verify)
+        if args.process_latest_feed:
+            run_process_latest_feed(verify_tls_certs)
         elif args.send_to_jdownloader is not None and len(args.send_to_jdownloader) == 1:
-            run_send_to_jdownloader(storage_path, args.send_to_jdownloader[0], categories, skip_cert_verify)
+            run_send_to_jdownloader(storage_path, args.send_to_jdownloader[0], categories, verify_tls_certs)
         elif args.retry_decryption_of_links:
             run_retry_decryption_of_links()
         elif args.remove_finished_links:

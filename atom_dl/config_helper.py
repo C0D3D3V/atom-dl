@@ -6,7 +6,7 @@ from typing import Dict
 from atom_dl.utils.path_tools import PathTools
 
 
-class ConfigHelper:
+class Config:
     """
     Handles the saving, formatting and loading of the local configuration.
     """
@@ -72,6 +72,12 @@ class ConfigHelper:
             return self.get_property('last_feed_update_dates')
         except ValueError:
             return {}
+
+    def get_last_feed_job_definitions(self) -> Dict:
+        try:
+            return self.get_property('last_feed_job_definitions')
+        except ValueError:
+            return []
 
     # ---------------------------- SETTERS ------------------------------------
 

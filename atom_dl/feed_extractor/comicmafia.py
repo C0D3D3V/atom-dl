@@ -10,10 +10,10 @@ import lxml.html
 
 from lxml import etree
 
-from atom_dl.download_service.feed_downloader.common import FeedDownloader
+from atom_dl.feed_extractor.common import FeedInfoExtractor
 
 
-class ComicmafiaFD(FeedDownloader):
+class ComicmafiaFIE(FeedInfoExtractor):
 
     max_page_url = 'https://comicmafia.to/'
     max_page_pattern = re.compile(r'<a class="page-numbers" href="https://comicmafia.to/page/(\d+)/">')
@@ -54,7 +54,8 @@ class ComicmafiaFD(FeedDownloader):
             description = None
             if len(package_content_list_nodes) > 0:
                 description = '\n\n'.join(
-                    '\n'.join(description_node.xpath('.//text()')) for description_node in package_content_list_nodes
+                    '\n'.join([elm.strip() for elm in description_node.xpath('.//text()')])
+                    for description_node in package_content_list_nodes
                 )
 
             if len(title_nodes) == 0:
@@ -128,6 +129,7 @@ class ComicmafiaFD(FeedDownloader):
                     "size_in_mb": size_in_mb,
                     "download_links": download_links,
                     "categories": category_nodes,
+                    "extractor_key": self.fie_key(),
                 }
             )
         return result_list

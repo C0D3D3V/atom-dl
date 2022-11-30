@@ -10,10 +10,10 @@ import lxml.html
 
 from lxml import etree
 
-from atom_dl.download_service.feed_downloader.common import FeedDownloader
+from atom_dl.feed_extractor.common import FeedInfoExtractor
 
 
-class IbooksFD(FeedDownloader):
+class IbooksFIE(FeedInfoExtractor):
 
     max_page_url = 'https://ibooks.to/page/2/'
     max_page_pattern = re.compile(r'Seite 2 von (\d+)')
@@ -54,8 +54,9 @@ class IbooksFD(FeedDownloader):
                 if node.tag == 'p':
                     if len(node.xpath('.//a')) > 0:
                         break
-                    if node.text:
-                        description += node.text + '\n\n'
+                    text_elements = node.xpath('.//text()')
+                    if len(text_elements) > 0:
+                        description += '\n'.join([elm.strip() for elm in text_elements]) + '\n\n'
             description = description.strip()
             if description == '':
                 description = None
@@ -132,6 +133,7 @@ class IbooksFD(FeedDownloader):
                     "size_in_mb": size_in_mb,
                     "download_links": download_links,
                     "categories": category_nodes,
+                    "extractor_key": self.fie_key(),
                 }
             )
         return result_list
@@ -139,7 +141,7 @@ class IbooksFD(FeedDownloader):
     def _real_download_latest_feed(self) -> List[Dict]:
         loop = asyncio.get_event_loop()
 
-        # On the wordpress side there are 10 entries per page and in rss there are also 10 entries per page
+        # On the WordPress side there are 10 entries per page and in rss there are also 10 entries per page
         max_page = self.get_max_page_for(self.max_page_url, self.max_page_pattern)
 
         # Collect all links that needs to be downloaded for metadata extraction

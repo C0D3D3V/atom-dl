@@ -5,7 +5,7 @@ from pathlib import Path
 
 from atom_dl.my_jd_api import MyJdApi
 from atom_dl.utils.path_tools import PathTools
-from atom_dl.config_service.config_helper import ConfigHelper
+from atom_dl.config_helper import Config
 
 
 class FinishedRemover:
@@ -31,7 +31,7 @@ class FinishedRemover:
         }
         """
         path_to_already_downloaded_links = str(
-            Path(ConfigHelper.get_user_config_directory()) / 'atom-dl' / 'already_downloaded_links.json'
+            Path(Config.get_user_config_directory()) / 'atom-dl' / 'already_downloaded_links.json'
         )
         already_downloaded_links = []
         try:
@@ -66,7 +66,7 @@ class FinishedRemover:
         print('Try to connect to JDownloader...')
         jd = MyJdApi()
         jd.set_app_key("Atom-Downloader")
-        config = ConfigHelper()
+        config = Config()
         username = config.get_my_jd_username()
         password = config.get_my_jd_password()
         device_name = config.get_my_jd_device()

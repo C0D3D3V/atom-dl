@@ -10,7 +10,6 @@ from pathlib import Path
 
 class LockError(Exception):
     """An Exception which gets thrown if a Downloader is already running."""
-
     pass
 
 
