@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor
 
@@ -8,8 +8,17 @@ class JobCreator:
         self,
         job_description: Dict,
     ):
+        # Todo: Create a rule set that allows complex job descriptions with an simple parsable syntax
+        # Todo: Create an output template filename?
+        # Todo: Create an replacement template for output filenames
         self.in_title = job_description.get('in_title', None)
-        self.in_feeds = job_description.get('in_feeds', None)
+        self.in_feeds = self.as_list_or_none(job_description.get('in_feeds', None))
+        self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
+
+    def as_list_or_none(self, obj) -> List:
+        if obj is not None and not isinstance(obj, list):
+            return [obj]
+        return obj
 
     def create_job(self, post: Dict, extractor: FeedInfoExtractor) -> Dict:
         """
@@ -30,10 +39,17 @@ class JobCreator:
         """
 
         matches_job_definition = True
-        if self.in_title is not None and self.in_title != '':
+        if self.in_title is not None:
             # Check if title matches job definition
-            if post.get('title', '').find(self.in_title) < 0:
-                matches_job_definition = False
+            matches_job_definition = False
+            if post.get('title', '').find(self.in_title) >= 0:
+                matches_job_definition = True
+
+        if self.in_categories is not None:
+            # Check if any category matches any category in job definition
+            matches_job_definition = False
+            if post.get('title', '').find(self.in_title) >= 0:
+                matches_job_definition = True
 
         if matches_job_definition:
             return self.create_job(post, extractor)
@@ -41,8 +57,6 @@ class JobCreator:
             return None
 
     def can_handle_feed(self, feed_name: str):
-        if self.in_feeds is None:
-            return True
-        if isinstance(self.in_feeds, list) and feed_name in self.in_feeds:
+        if self.in_feeds is None or feed_name in self.in_feeds:
             return True
         return False
