@@ -195,51 +195,20 @@ class Config:
 class DownloadController:
     """
     Class that represents the download-controller of a Device
+    https://my.jdownloader.org/developers/#tag_90
     """
 
     def __init__(self, device):
         self.device = device
         self.url = '/downloadcontroller'
 
-    def start_downloads(self):
-        """
-
-        :return:
-        """
-        resp = self.device.action(self.url + "/start")
-        return resp
-
-    def stop_downloads(self):
-        """
-
-        :return:
-        """
-        resp = self.device.action(self.url + "/stop")
-        return resp
-
-    def pause_downloads(self, value):
-        """
-
-        :param value:
-        :return:
-        """
-        params = [value]
-        resp = self.device.action(self.url + "/pause", params)
-        return resp
-
-    def get_speed_in_bytes(self):
-        """
-
-        :return:
-        """
-        resp = self.device.action(self.url + "/getSpeedInBps")
-        return resp
-
     def force_download(self, link_ids, package_ids):
         """
-        :param link_ids:
-        :param package_ids:
-        :return:
+        :param link_ids: link UUID's.
+        :type: list of strings
+
+        :param package_ids: Package UUID's.
+        :type: list of strings.
         """
         params = [link_ids, package_ids]
         resp = self.device.action(self.url + "/forceDownload", params)
@@ -247,10 +216,41 @@ class DownloadController:
 
     def get_current_state(self):
         """
-
-        :return:
+        :return: String
         """
         resp = self.device.action(self.url + "/getCurrentState")
+        return resp
+
+    def get_speed_in_bps(self):
+        """
+        :return:  int
+        """
+        resp = self.device.action(self.url + "/getSpeedInBps")
+        return resp
+
+    def pause_downloads(self, value):
+        """
+        :param value:
+        :type: boolean
+
+        :return:  boolean
+        """
+        params = [value]
+        resp = self.device.action(self.url + "/pause", params)
+        return resp
+
+    def start_downloads(self):
+        """
+        :return: boolean
+        """
+        resp = self.device.action(self.url + "/start")
+        return resp
+
+    def stop_downloads(self):
+        """
+        :return: boolean
+        """
+        resp = self.device.action(self.url + "/stop")
         return resp
 
 
@@ -793,7 +793,7 @@ class Downloads:
     https://my.jdownloader.org/developers/#tag_127
 
     Not yet implemented:
-    
+
     getStopMark -> long
     getStopMarkedLink  ->  DownloadLink
     getStructureChangeCounter (oldCounterValue) ->  long
