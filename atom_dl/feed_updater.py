@@ -3,8 +3,7 @@ import json
 from typing import List, Dict
 from datetime import datetime, timezone
 
-from atom_dl.utils.logger import Log
-from atom_dl.utils.path_tools import PathTools
+from atom_dl.utils import Log, PathTools
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import FeedInfoExtractor
 

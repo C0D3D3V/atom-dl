@@ -2,7 +2,7 @@ import json
 
 from pathlib import Path
 
-from atom_dl.utils.path_tools import PathTools
+from atom_dl.utils import PathTools
 from atom_dl.my_jd_api import MyJdApi
 from atom_dl.config_helper import Config
 

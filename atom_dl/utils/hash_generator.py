@@ -8,7 +8,7 @@ from pathlib import Path
 import zipfile
 import rarfile
 
-from atom_dl.utils.path_tools import PathTools
+from atom_dl.utils import PathTools
 
 
 class HashGenerator:

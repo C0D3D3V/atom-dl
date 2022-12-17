@@ -3,7 +3,7 @@ import json
 
 from typing import Dict
 
-from atom_dl.utils.path_tools import PathTools
+from atom_dl.utils import PathTools
 
 
 class Config:

@@ -5,7 +5,7 @@ import hashlib
 
 from pathlib import Path
 
-from atom_dl.utils.path_tools import PathTools
+from atom_dl.utils import PathTools
 
 
 class DuplicatesChecker:

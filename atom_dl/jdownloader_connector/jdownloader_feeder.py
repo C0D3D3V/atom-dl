@@ -4,7 +4,7 @@ import logging
 import requests
 
 from requests.exceptions import RequestException
-from atom_dl.utils.path_tools import PathTools
+from atom_dl.utils import PathTools
 
 
 class JDownloaderFeeder:

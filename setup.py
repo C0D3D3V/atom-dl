@@ -20,7 +20,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/user/Atom-Downloader',
     author='user',
-    author_email=' user@mag-keinen-spam.de',
+    author_email=' user@gmail.com',
     license='MIT',
     packages=find_packages(),
     include_package_data=True,

@@ -1,4 +1,4 @@
-from atom_dl.utils.logger import Log
+from atom_dl.utils import Log
 from atom_dl.config_helper import Config
 from atom_dl.job_creator import JobCreator
 from atom_dl.jobs_worker import JobsWorker
