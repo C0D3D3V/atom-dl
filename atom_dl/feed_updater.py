@@ -1,11 +1,11 @@
 import json
 
-from typing import List, Dict
 from datetime import datetime, timezone
+from typing import List, Dict
 
-from atom_dl.utils import Log, PathTools
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import FeedInfoExtractor
+from atom_dl.utils import Log, PathTools
 
 
 class FeedUpdater:

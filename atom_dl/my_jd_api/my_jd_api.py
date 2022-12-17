@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 # Mirrored from https://github.com/mmarquezs/My.Jdownloader-API-Python-Library
 # API Documentation: https://my.jdownloader.org/developers
+import base64
 import hashlib
 import hmac
 import json
@@ -8,8 +9,9 @@ import time
 
 # from urllib.request import urlopen
 from urllib.parse import quote
-import base64
+
 import requests
+
 from Cryptodome.Cipher import AES
 
 from atom_dl.my_jd_api.exception import (

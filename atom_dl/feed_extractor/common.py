@@ -6,8 +6,8 @@ from datetime import datetime
 from itertools import cycle
 from typing import List, Dict
 
-import asyncio
 import aiohttp
+import asyncio
 import requests
 import urllib3
 

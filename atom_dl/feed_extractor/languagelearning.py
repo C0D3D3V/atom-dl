@@ -1,5 +1,5 @@
-import re
 import asyncio
+import re
 
 from typing import List, Dict
 from urllib.parse import urlparse

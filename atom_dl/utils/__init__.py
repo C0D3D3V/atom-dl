@@ -1,10 +1,13 @@
-import sys
-import os
 import html
+import itertools
+import os
+import re
+import sys
 import tempfile
+import unicodedata
 
 from pathlib import Path
-from yt_dlp.utils import sanitize_filename, remove_start
+
 
 def check_verbose() -> bool:
     """Return if the verbose mode is active"""
@@ -118,6 +121,31 @@ class Log:
         print(Log.success_str(logString))
 
 
+NO_DEFAULT = object()
+
+# needed for sanitizing filenames in restricted mode
+ACCENT_CHARS = dict(
+    zip(
+        'ÂÃÄÀÁÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖŐØŒÙÚÛÜŰÝÞßàáâãäåæçèéêëìíîïðñòóôõöőøœùúûüűýþÿ',
+        itertools.chain(
+            'AAAAAA',
+            ['AE'],
+            'CEEEEIIIIDNOOOOOOO',
+            ['OE'],
+            'UUUUUY',
+            ['TH', 'ss'],
+            'aaaaaa',
+            ['ae'],
+            'ceeeeiiiionooooooo',
+            ['oe'],
+            'uuuuuy',
+            ['th'],
+            'y',
+        ),
+    )
+)
+
+
 class PathTools:
     """A set of methods to create correct paths."""
 
@@ -145,11 +173,69 @@ class PathTools:
         name = name.replace('\xad', '')
         while '  ' in name:
             name = name.replace('  ', ' ')
-        name = sanitize_filename(name, PathTools.restricted_filenames)
+        name = PathTools.sanitize_filename(name, PathTools.restricted_filenames)
         name = name.strip('. ')
         name = name.strip()
 
         return name
+
+    @staticmethod
+    def sanitize_filename(s, restricted=False, is_id=NO_DEFAULT):
+        """Sanitizes a string so it could be used as part of a filename.
+        @param restricted   Use a stricter subset of allowed characters
+        @param is_id        Whether this is an ID that should be kept unchanged if possible.
+                            If unset, yt-dlp's new sanitization rules are in effect
+        """
+        if s == '':
+            return ''
+
+        def replace_insane(char):
+            if restricted and char in ACCENT_CHARS:
+                return ACCENT_CHARS[char]
+            elif not restricted and char == '\n':
+                return '\0 '
+            elif is_id is NO_DEFAULT and not restricted and char in '"*:<>?|/\\':
+                # Replace with their full-width unicode counterparts
+                return {'/': '\u29F8', '\\': '\u29f9'}.get(char, chr(ord(char) + 0xFEE0))
+            elif char == '?' or ord(char) < 32 or ord(char) == 127:
+                return ''
+            elif char == '"':
+                return '' if restricted else '\''
+            elif char == ':':
+                return '\0_\0-' if restricted else '\0 \0-'
+            elif char in '\\/|*<>':
+                return '\0_'
+            if restricted and (char in '!&\'()[]{}$;`^,#' or char.isspace() or ord(char) > 127):
+                return '\0_'
+            return char
+
+        if restricted and is_id is NO_DEFAULT:
+            s = unicodedata.normalize('NFKC', s)
+        s = re.sub(r'[0-9]+(?::[0-9]+)+', lambda m: m.group(0).replace(':', '_'), s)  # Handle timestamps
+        result = ''.join(map(replace_insane, s))
+        if is_id is NO_DEFAULT:
+            result = re.sub(r'(\0.)(?:(?=\1)..)+', r'\1', result)  # Remove repeated substitute chars
+            STRIP_RE = r'(?:\0.|[ _-])*'
+            result = re.sub(f'^\0.{STRIP_RE}|{STRIP_RE}\0.$', '', result)  # Remove substitute chars from start/end
+        result = result.replace('\0', '') or '_'
+
+        if not is_id:
+            while '__' in result:
+                result = result.replace('__', '_')
+            result = result.strip('_')
+            # Common case of "Foreign band name - English song title"
+            if restricted and result.startswith('-_'):
+                result = result[2:]
+            if result.startswith('-'):
+                result = '_' + result[len('-') :]
+            result = result.lstrip('.')
+            if not result:
+                result = '_'
+        return result
+
+    @staticmethod
+    def remove_start(s, start):
+        return s[len(start) :] if s is not None and s.startswith(start) else s
 
     @staticmethod
     def sanitize_path(path: str):
@@ -158,7 +244,7 @@ class PathTools:
         @return: A path where every part was sanitized using to_valid_name.
         """
         drive_or_unc, _ = os.path.splitdrive(path)
-        norm_path = os.path.normpath(remove_start(path, drive_or_unc)).split(os.path.sep)
+        norm_path = os.path.normpath(PathTools.remove_start(path, drive_or_unc)).split(os.path.sep)
         if drive_or_unc:
             norm_path.pop(0)
 

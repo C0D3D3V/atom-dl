@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
 import traceback
 
 from logging.handlers import RotatingFileHandler
 
-from atom_dl.utils import check_debug, check_verbose, process_lock, process_unlock, LockError, Log, PathTools
 from atom_dl.latest_feed_processor import LatestFeedProcessor
+from atom_dl.utils import (
+    check_debug,
+    check_verbose,
+    LockError,
+    Log,
+    PathTools,
+    process_lock,
+    process_unlock,
+)
 from atom_dl.version import __version__
 
 

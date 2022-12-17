@@ -1,10 +1,9 @@
-from atom_dl.utils import Log
 from atom_dl.config_helper import Config
+from atom_dl.feed_extractor import gen_extractors
+from atom_dl.feed_updater import FeedUpdater
 from atom_dl.job_creator import JobCreator
 from atom_dl.jobs_worker import JobsWorker
-from atom_dl.feed_updater import FeedUpdater
-
-from atom_dl.feed_extractor import gen_extractors
+from atom_dl.utils import Log
 
 
 class LatestFeedProcessor:

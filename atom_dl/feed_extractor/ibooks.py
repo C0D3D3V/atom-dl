@@ -1,9 +1,9 @@
-import re
-import html
 import asyncio
+import html
+import re
 
-from typing import List, Dict
 from datetime import datetime
+from typing import List, Dict
 from urllib.parse import urlparse
 
 import lxml.html
