@@ -4,7 +4,7 @@
 import base64
 import hashlib
 import hmac
-import json
+import orjson
 import time
 
 # from urllib.request import urlopen
@@ -1599,7 +1599,7 @@ class MyJdApi:
             if params is not None:
                 for param in params:
                     if not isinstance(param, list):
-                        params_request += [json.dumps(param)]
+                        params_request += [orjson.dumps(param)]
                     else:
                         params_request += [param]
             params_request = {
@@ -1608,7 +1608,7 @@ class MyJdApi:
                 "params": params_request,
                 "rid": self.__request_id,
             }
-            data = json.dumps(params_request)
+            data = orjson.dumps(params_request)
             # Removing quotes around null elements.
             data = data.replace('"null"', "null")
             data = data.replace("'null'", "null")
@@ -1629,11 +1629,11 @@ class MyJdApi:
                 return None
         if encrypted_response.status_code != 200:
             try:
-                error_msg = json.loads(encrypted_response.text)
-            except json.JSONDecodeError:
+                error_msg = orjson.loads(encrypted_response.text)
+            except orjson.JSONDecodeError:
                 try:
-                    error_msg = json.loads(self.__decrypt(self.__device_encryption_token, encrypted_response.text))
-                except json.JSONDecodeError:
+                    error_msg = orjson.loads(self.__decrypt(self.__device_encryption_token, encrypted_response.text))
+                except orjson.JSONDecodeError:
                     raise MYJDDecodeException("Failed to decode response: {}", encrypted_response.text)
             msg = (
                 "\n\tSOURCE: "
@@ -1657,7 +1657,7 @@ class MyJdApi:
                 response = self.__decrypt(self.__server_encryption_token, encrypted_response.text)
         else:
             response = self.__decrypt(self.__device_encryption_token, encrypted_response.text)
-        jsondata = json.loads(response.decode('utf-8'))
+        jsondata = orjson.loads(response.decode('utf-8'))
         if jsondata['rid'] != self.__request_id:
             self.update_request_id()
             return None

@@ -48,8 +48,10 @@ class JobCreator:
         if self.in_categories is not None:
             # Check if any category matches any category in job definition
             matches_job_definition = False
-            if post.get('title', '').find(self.in_title) >= 0:
-                matches_job_definition = True
+            for category in self.in_categories:
+                if category in post.get('categories', []):
+                    matches_job_definition = True
+                    break
 
         if matches_job_definition:
             return self.create_job(post, extractor)

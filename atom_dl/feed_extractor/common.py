@@ -49,7 +49,6 @@ class FeedInfoExtractor:
         self.sem = asyncio.Semaphore(10)
         self.until_date = datetime.fromtimestamp(0)
         self.verify_tls_certs = verify_tls_certs
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def init(self, until_date: datetime):
         self.until_date = until_date

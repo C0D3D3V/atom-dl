@@ -9,6 +9,8 @@ import traceback
 
 from logging.handlers import RotatingFileHandler
 
+import requests  # noqa: F401 pylint: disable=unused-import
+
 from atom_dl.latest_feed_processor import LatestFeedProcessor
 from atom_dl.utils import (
     check_debug,
@@ -53,6 +55,9 @@ def setup_logger():
     else:
         app_log.setLevel(logging.INFO)
     app_log.addHandler(log_handler)
+
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
     logging.info('--- atom-dl started ---------------------')
     Log.info('Atom Downloader starting...')

@@ -1,7 +1,7 @@
-import json
-
 from datetime import datetime, timezone
 from typing import List, Dict
+
+import orjson
 
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import FeedInfoExtractor
@@ -25,7 +25,7 @@ class FeedUpdater:
 
         # Serializing json
         print('Serializing feed json')
-        json_object = json.dumps(latest_feed_list, indent=4)  # ensure_ascii=False
+        json_object = orjson.dumps(latest_feed_list, option=orjson.OPT_INDENT_2)  # ensure_ascii=False
 
         # Writing to sample.json
         print(f'Saving latest feed json to {path_of_feed_json}')

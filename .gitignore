@@ -7,3 +7,4 @@ __pycache__
 /dist
 /atom_dl.egg-info
 AtomDownloader.log
+TODO.md
