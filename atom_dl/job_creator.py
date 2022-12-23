@@ -22,18 +22,18 @@ class JobCreator:
         Creates an job dictionary based on a given post
         """
 
-        # destination_path = ?
-        # package_name = ?
-        # password = ?
-        # extractor_key = ?
+        destination_path = extractor.get_destination_path(post)
+        package_name = extractor.get_package_name(post)
+        extractor_key = extractor.fie_key()
 
         job_dict = {
-            "title": post["title"],
-            "page_link": post["page_link"],
-            "page_id": post["page_id"],
+            "title": post.get("title", 'Untitled'),
+            "page_link": post.get("page_link", 'No page_link'),
+            "page_id": post.get("page_link", 'No page_id'),
+            "download_links": post.get("download_links", []),
             "destination_path": destination_path,
             "package_name": package_name,
-            "password": password,
+            "password": post.get("password", None),
             "extractor_key": extractor_key,
         }
 

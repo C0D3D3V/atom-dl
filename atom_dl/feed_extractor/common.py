@@ -9,7 +9,6 @@ from typing import List, Dict
 import aiohttp
 import asyncio
 import requests
-import urllib3
 
 from lxml import etree
 
@@ -28,6 +27,7 @@ class FeedInfoExtractor:
     xml_ns = {'atom': 'http://www.w3.org/2005/Atom'}
     default_time_format = "%Y-%m-%dT%H:%M:%S%z"  # works for atom and WordPress HTML
     size_pattern = re.compile(r"(\d+(?:[,.]\d+)?) ?([MGK]B|[mgk]b)")
+    brackets_pattern = re.compile(r"\s\([^\)\()]+\)")
 
     forbidden_hoster = [
         'megacache.net',
@@ -234,9 +234,38 @@ class FeedInfoExtractor:
         )
 
     @classmethod
-    def fie_key(cls):
+    def fie_key(cls) -> str:
         """A string for getting the FeedInfoExtractor with get_feed_extractor"""
         return cls.__name__[:-3]
+
+    def get_top_category(self, post: Dict) -> str:
+        """
+        We divide the downloads into the following directories:
+        - Bücher
+        - Fachbücher
+        - Sprachunterricht
+        - Magazine
+        - Zeitungen
+        - Comics
+        - Mangas
+        - Audios
+        - Videos
+        - Filme
+        - Serien
+        - Anime
+        - Software
+
+        @param post: Given post for that we want to know the top category
+        @return: One of the top categories
+        """
+        raise NotImplementedError('This method must be implemented by subclasses')
+
+    def get_package_name(self, post: Dict) -> str:
+        """
+        @param post: Given post for that we need a package name
+        @return: Download package name of a post
+        """
+        raise NotImplementedError('This method must be implemented by subclasses')
 
     def download_latest_feed(self) -> List[Dict]:
         startTime = time.time()

@@ -126,6 +126,8 @@ class IbooksFIE(FeedInfoExtractor):
             if len(page_id_nodes) > 0:
                 page_id = page_id_nodes[0]
 
+            password = 'ibooks.to'
+
             result_list.append(
                 {
                     "title": title,
@@ -139,6 +141,7 @@ class IbooksFIE(FeedInfoExtractor):
                     "size_in_mb": size_in_mb,
                     "download_links": download_links,
                     "categories": category_nodes,
+                    "password": password,
                     "extractor_key": self.fie_key(),
                 }
             )
@@ -162,3 +165,105 @@ class IbooksFIE(FeedInfoExtractor):
         )
 
         return result_list
+
+    def get_top_category(self, post: Dict) -> str:
+        """
+        Categories on ibooks.to:
+        - Bücher
+            - Action & Horror
+            - Bestseller & Sammelpacks
+            - Erotik
+            - Fantasy & Science Fiction
+            - Historisch
+            - Horror
+            - Humor & Satire
+            - Kinderbuch
+            - Krimi & Thriller
+            - Roman & Drama
+        - Fachbücher
+        - Magazine
+        - Zeitungen
+        - Comics
+        - Mangas
+        - Videos
+
+        ibooks.to categories we want to handle:
+        [
+            "Action & Horror",
+            "Bestseller / Ebook-Pakete / Sammelpacks",
+            "Comic & Manga",
+            "E-Learning Videos",
+            "Ebooks",
+            "Englisch",
+            "Erotik",
+            "Fantasy & Science Fiction",
+            "Historisch",
+            "Horror",
+            "Humor & Satire",
+            "Kinderbuch",
+            "Krimi & Thriller",
+            "Magazine & Zeitschriften",
+            "Neuerscheinungen",
+            "Neuigkeiten",
+            "Perry Rhodan",
+            "Roman & Drama",
+            "Sachbuch & Fachbuch",
+            "Zeitungen",
+        ]
+        """
+
+        # Handle for special top category
+        category_map = {
+            "E-Learning Videos": "Videos",
+            "Manga": "Mangas",
+            "Comic & Manga": "Comics",
+            "Zeitungen": "Zeitungen",
+            "Magazine & Zeitschriften": "Magazine",
+            "Sachbuch & Fachbuch": "Fachbücher",
+        }
+
+        post_categories = post.get('categories', [])
+        for category_check, top_category in category_map.items():
+            for category in post_categories:
+                if category == category_check:
+                    return top_category
+
+        # All others are in top category Ebooks
+        return "Bücher"
+
+    def get_package_name(self, post: Dict) -> str:
+        """
+        Example Names:
+        Manga:
+            Gleipnir (EMA, 2018-…) 01 – 06
+            Sprite (Carlsen, 2013-2017) 01 – 15
+        Comics:
+            Die verlorene Armee (Bunte Dimensionen, 2014-…) 01 – 04
+        Zeitungen:
+            Tageszeitungen vom 27.09.2020
+            Frankfurter Allgemeine Sonntagszeitung vom 10. Juli 2022
+        E-Learning Videos:
+            LinkedIn – Rust lernen 2021
+        Magazine & Zeitschriften:
+            Simply Häkeln Magazin – aktuelle Ausgabe 2021-02
+            ORF Nachlese – aktuelle Ausgabe 2021-05 + Sonderheft Garten 2021
+        Sachbuch & Fachbuch:
+            Daniela Katzenberger – Die Katze kocht!
+        Bestseller / Ebook-Pakete / Sammelpacks:
+            Charlotte Byrd – Gefährliche Verlobung – Band 1-3
+            Susanna Schober – Mondlicht Saga (Reihe in 3 Bänden)
+            Alica H. White – Liebe passiert 1+2
+            The New York Times’ 100 Notable Books of (2020) – Sammelpack (99 eBooks) [Englisch]
+
+        Magazines and newspapers need special treatment.
+        """
+        post_top_category = self.get_top_category(post)
+        post_title = post.get('title', '')
+        if post_top_category == 'Magazine':
+            return post_title.split(' – aktuelle Ausgabe').strip()
+        elif post_top_category == 'Zeitungen':
+            return post_title.split(' vom ').strip()
+        elif post_top_category in ['Comics', 'Manga']:
+            return self.brackets_pattern.sub('', post_title).strip()
+        else:
+            return post_title.strip()

@@ -128,6 +128,8 @@ class LanguagelearningFIE(FeedInfoExtractor):
             print(f"\r\033[KError in {page_link} for {title}, no download link found")
             return None
 
+        password = 'languagelearning.site'
+
         return {
             "title": title,
             "page_link": page_link,
@@ -140,6 +142,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
             "size_in_mb": size_in_mb,
             "download_links": download_links,
             "categories": category_nodes,
+            "password": password,
             "extractor_key": self.fie_key(),
         }
 
@@ -161,3 +164,22 @@ class LanguagelearningFIE(FeedInfoExtractor):
             )
 
         return result_list
+
+    def get_top_category(self, post: Dict) -> str:
+        """
+        In the first place, everything is on the page educational material or more precise language teaching material,
+        but these differ subcategories.
+        """
+
+        # All posts are in top category language teaching material
+        return "Sprachunterricht"
+
+    def get_package_name(self, post: Dict) -> str:
+        """
+        Example Names:
+            Wortschatz einfach praktisch – Arabisch
+            Spoken World Polish
+            Geheimnis bei der Wassersport-Olympiade
+        """
+
+        return post.get('title', '').strip()

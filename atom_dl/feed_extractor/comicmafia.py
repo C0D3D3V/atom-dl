@@ -122,6 +122,8 @@ class ComicmafiaFIE(FeedInfoExtractor):
                                 size_in_mb = int(only_size)
                             break
 
+            password = 'comicmafia.to'
+
             result_list.append(
                 {
                     "title": title,
@@ -135,6 +137,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
                     "size_in_mb": size_in_mb,
                     "download_links": download_links,
                     "categories": category_nodes,
+                    "password": password,
                     "extractor_key": self.fie_key(),
                 }
             )
@@ -158,3 +161,39 @@ class ComicmafiaFIE(FeedInfoExtractor):
         )
 
         return result_list
+
+    def get_top_category(self, post: Dict) -> str:
+        """
+        Categories on comicmafia.to:
+        - Comics
+        - Mangas
+
+        comicmafia.to does only tell in the title or in urls that a post is a manga
+        """
+
+        post_title = post.get('title', '')
+        post_download_links = post.get('download_links', [])
+        if post_title.lower().find('manga') >= 0:
+            return "Mangas"
+        for post_download_link in post_download_links:
+            if post_download_link.lower().find('manga') >= 0:
+                return "Mangas"
+
+        # All others are in top category Comics
+        return "Comics"
+
+    def get_package_name(self, post: Dict) -> str:
+        """
+        Example Names:
+        Manga:
+            Innocent 1-9 (Tokyopop Manga) (nur Download)
+        Comics:
+        Die offizielle Marvel-Comic-Sammlung (Hachette, Inhalt siehe Beschreibung) (nur Download)
+            Donald Duck von Jan Gulbransson (Ehapa)
+            Star Wars – Sonderband 1-90 (nur Download)
+            Zeus & Co 1-3 (Kruef) (nur Download)
+
+        We remove all parentheses, even if they sometimes contain interesting information.
+        """
+        post_title = post.get('title', '')
+        return self.brackets_pattern.sub('', post_title).strip()
