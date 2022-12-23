@@ -8,9 +8,6 @@ class JobCreator:
         self,
         job_description: Dict,
     ):
-        # Todo: Create a rule set that allows complex job descriptions with an simple parsable syntax
-        # Todo: Create an output template filename?
-        # Todo: Create an replacement template for output filenames
         self.in_title = job_description.get('in_title', None)
         self.in_feeds = self.as_list_or_none(job_description.get('in_feeds', None))
         self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
@@ -24,11 +21,20 @@ class JobCreator:
         """
         Creates an job dictionary based on a given post
         """
+
+        # destination_path = ?
+        # package_name = ?
+        # password = ?
+        # extractor_key = ?
+
         job_dict = {
             "title": post["title"],
             "page_link": post["page_link"],
             "page_id": post["page_id"],
-            "download_links": post["download_links"],
+            "destination_path": destination_path,
+            "package_name": package_name,
+            "password": password,
+            "extractor_key": extractor_key,
         }
 
         return job_dict

@@ -9,8 +9,11 @@ import traceback
 
 from logging.handlers import RotatingFileHandler
 
+import asyncio  # noqa: F401 pylint: disable=unused-import
 import requests  # noqa: F401 pylint: disable=unused-import
 
+from atom_dl.my_jd_api import MyJdApi, MYJDException
+from atom_dl.config_helper import Config
 from atom_dl.latest_feed_processor import LatestFeedProcessor
 from atom_dl.utils import (
     check_debug,
@@ -33,6 +36,55 @@ class ReRaiseOnError(logging.StreamHandler):
     def emit(self, record):
         if hasattr(record, 'exception'):
             raise record.exception
+
+
+def check_mandatory_settings():
+    config = Config()
+    Log.info(f"Using configuration file `{config.get_config_path()}`")
+    Log.info("Checking the configuration for mandatory values...")
+    try:
+        storage_path = config.get_storage_path()
+    except ValueError as config_error:
+        Log.error(str(config_error))
+        Log.error("Please set a download location for all downloads in your configuration.")
+        exit(-1)
+
+    if not os.path.isdir(storage_path):
+        Log.error("Please make sure that the specified download location is an existing folder.")
+        exit(-1)
+
+    if not os.access(storage_path, os.R_OK):
+        Log.error("Please make sure that the specified download folder is readable.")
+        exit(-1)
+
+    if not os.access(storage_path, os.W_OK):
+        Log.error("Please make sure that the specified download folder is writable.")
+        exit(-1)
+
+    try:
+        my_jd_username = config.get_my_jd_username()
+        my_jd_password = config.get_my_jd_password()
+        my_jd_device = config.get_my_jd_device()
+    except ValueError as config_error:
+        Log.error(str(config_error))
+        Log.error(
+            "Please set all MyJDownloader settings in your configuration:\n"
+            + "{my_jd_username, my_jd_password, my_jd_device}"
+        )
+        exit(-1)
+    Log.info("Try to connect to MyJDownloader...")
+    try:
+        jd = MyJdApi()
+        jd.set_app_key("Atom-Downloader")
+        jd.connect(my_jd_username, my_jd_password)
+        _ = jd.get_device(my_jd_device)
+        jd.disconnect()
+    except MYJDException as config_error:
+        Log.warning(str(config_error))
+        Log.warning(
+            "Warning no connection could be established with MyJDownloader.\n"
+            + "Pending jobs are pushed to an offline queue if JDownloader remains unreachable."
+        )
 
 
 def setup_logger():
@@ -58,6 +110,7 @@ def setup_logger():
 
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
 
     logging.info('--- atom-dl started ---------------------')
     Log.info('Atom Downloader starting...')
@@ -146,8 +199,8 @@ def main(args=None):
     setup_logger()
     verify_tls_certs = not args.skip_cert_verify
 
+    check_mandatory_settings()
     try:
-
         if args.process_latest_feed:
             process_lock()
             latest_feed_processor = LatestFeedProcessor(verify_tls_certs)

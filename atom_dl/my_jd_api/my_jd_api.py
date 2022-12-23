@@ -1599,7 +1599,7 @@ class MyJdApi:
             if params is not None:
                 for param in params:
                     if not isinstance(param, list):
-                        params_request += [orjson.dumps(param)]
+                        params_request += [orjson.dumps(param).decode('utf-8')]
                     else:
                         params_request += [param]
             params_request = {
@@ -1608,7 +1608,7 @@ class MyJdApi:
                 "params": params_request,
                 "rid": self.__request_id,
             }
-            data = orjson.dumps(params_request)
+            data = orjson.dumps(params_request).decode('utf-8')
             # Removing quotes around null elements.
             data = data.replace('"null"', "null")
             data = data.replace("'null'", "null")

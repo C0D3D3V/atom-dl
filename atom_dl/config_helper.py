@@ -39,6 +39,10 @@ class Config:
             config_formatted = orjson.dumps(self._whole_config, option=orjson.OPT_INDENT_2)
             config_file.write(config_formatted)
 
+    def get_config_path(self) -> str:
+        # return the path of the config file
+        return self.config_path
+
     def get_property(self, key: str) -> any:
         # returns a property if configured
         try:
@@ -79,6 +83,9 @@ class Config:
             return self.get_property('last_feed_job_definitions')
         except ValueError:
             return []
+
+    def get_storage_path(self) -> str:
+        return self.get_property('storage_path')
 
     # ---------------------------- SETTERS ------------------------------------
 
