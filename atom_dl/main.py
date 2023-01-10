@@ -9,7 +9,7 @@ import traceback
 
 from logging.handlers import RotatingFileHandler
 
-import asyncio  # noqa: F401 pylint: disable=unused-import
+# import asyncio  # noqa: F401 pylint: disable=unused-import
 import requests  # noqa: F401 pylint: disable=unused-import
 
 from atom_dl.my_jd_api import MyJdApi, MYJDException
@@ -110,7 +110,7 @@ def setup_logger():
 
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger('asyncio').setLevel(logging.WARNING)
+    # logging.getLogger('asyncio').setLevel(logging.WARNING)
 
     logging.info('--- atom-dl started ---------------------')
     Log.info('Atom Downloader starting...')

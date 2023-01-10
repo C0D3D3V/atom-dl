@@ -144,8 +144,6 @@ class ComicmafiaFIE(FeedInfoExtractor):
         return result_list
 
     def _real_download_latest_feed(self) -> List[Dict]:
-        loop = asyncio.get_event_loop()
-
         # On the WordPress side there are 40 entries per page but in rss there are only 10
         max_page = self.get_max_page_for(self.max_page_url, self.max_page_pattern) * 4
 
@@ -156,9 +154,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
 
         # Download and extract all pages
         result_list = []
-        loop.run_until_complete(
-            self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list)
-        )
+        asyncio.run(self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list))
 
         return result_list
 

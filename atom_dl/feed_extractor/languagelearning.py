@@ -147,19 +147,17 @@ class LanguagelearningFIE(FeedInfoExtractor):
         }
 
     def _real_download_latest_feed(self) -> List[Dict]:
-        loop = asyncio.get_event_loop()
-
         # On the WordPress side there are 5 entries per page and in rss there are also 5 entries per page
         max_page = self.get_max_page_for(self.max_page_url, self.max_page_pattern)
 
         # Collect all links that needs to be downloaded for metadata extraction
         page_links_list = []
-        loop.run_until_complete(self.crawl_all_atom_page_links(self.feed_url, max_page, page_links_list))
+        asyncio.run(self.crawl_all_atom_page_links(self.feed_url, max_page, page_links_list))
 
         # Download and extract all pages
         result_list = []
         if len(page_links_list) > 0:
-            loop.run_until_complete(
+            asyncio.run(
                 self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list)
             )
 

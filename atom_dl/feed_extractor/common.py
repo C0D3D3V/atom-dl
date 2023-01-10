@@ -46,7 +46,7 @@ class FeedInfoExtractor:
         """
         @param verify_tls_certs: if tls certificates should be verified
         """
-        self.sem = asyncio.Semaphore(10)
+        self.max_parallel_downloads = 10
         self.until_date = datetime.fromtimestamp(0)
         self.verify_tls_certs = verify_tls_certs
 
@@ -54,9 +54,15 @@ class FeedInfoExtractor:
         self.until_date = until_date
 
     async def fetch_page_and_extract(
-        self, page_idx: int, link: str, extractor_method, result_list: List[Dict], status_dict: Dict
+        self,
+        page_idx: int,
+        link: str,
+        extractor_method,
+        result_list: List[Dict],
+        status_dict: Dict,
+        semaphore: asyncio.Semaphore,
     ):
-        async with self.sem:
+        async with semaphore:
             if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
                 status_dict['skipped'] += 1
                 return
@@ -81,10 +87,13 @@ class FeedInfoExtractor:
     async def _real_fetch_all_pages_and_extract(
         self, page_links_list: List, extractor_method, result_list: List[Dict], status_dict: Dict
     ):
+        semaphore = asyncio.Semaphore(self.max_parallel_downloads)
         try:
             await asyncio.gather(
                 *[
-                    self.fetch_page_and_extract(page_idx, page_link, extractor_method, result_list, status_dict)
+                    self.fetch_page_and_extract(
+                        page_idx, page_link, extractor_method, result_list, status_dict, semaphore
+                    )
                     for page_idx, page_link in enumerate(page_links_list)
                 ],
                 return_exceptions=True,
@@ -125,8 +134,15 @@ class FeedInfoExtractor:
 
         return int(result[-1])
 
-    async def crawl_atom_page_links(self, page_idx: int, link: str, page_links_list: List, status_dict: Dict):
-        async with self.sem:
+    async def crawl_atom_page_links(
+        self,
+        page_idx: int,
+        link: str,
+        page_links_list: List,
+        status_dict: Dict,
+        semaphore: asyncio.Semaphore,
+    ):
+        async with semaphore:
             if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
                 status_dict['skipped'] += 1
                 return
@@ -177,11 +193,12 @@ class FeedInfoExtractor:
     async def _real_crawl_all_atom_page_links(
         self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
     ):
+        semaphore = asyncio.Semaphore(self.max_parallel_downloads)
         try:
             await asyncio.gather(
                 *[
                     self.crawl_atom_page_links(
-                        page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict
+                        page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, semaphore
                     )
                     for page_idx in range(1, int(max_page_num) + 1)
                 ]
