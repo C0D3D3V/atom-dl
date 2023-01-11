@@ -20,7 +20,7 @@ from atom_dl.utils import (
     check_verbose,
     LockError,
     Log,
-    PathTools,
+    PathTools as PT,
     process_lock,
     process_unlock,
 )
@@ -89,7 +89,7 @@ def check_mandatory_settings():
 
 def setup_logger():
     log_formatter = logging.Formatter('%(asctime)s  %(levelname)s  {%(module)s}  %(message)s', '%Y-%m-%d %H:%M:%S')
-    log_file = PathTools.get_path_of_log_file()
+    log_file = PT.get_path_of_log_file()
     log_handler = RotatingFileHandler(
         log_file, mode='a', maxBytes=1 * 1024 * 1024, backupCount=2, encoding='utf-8', delay=0
     )

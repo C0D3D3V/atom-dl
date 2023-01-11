@@ -22,7 +22,7 @@ class JobCreator:
         Creates an job dictionary based on a given post
         """
 
-        destination_path = extractor.get_destination_path(post)
+        top_category = extractor.get_top_category(post)
         package_name = extractor.get_package_name(post)
         extractor_key = extractor.fie_key()
 

@@ -4,7 +4,7 @@ from typing import Dict
 
 import orjson
 
-from atom_dl.utils import PathTools
+from atom_dl.utils import PathTools as PT
 
 
 class Config:
@@ -14,7 +14,7 @@ class Config:
 
     def __init__(self):
         self._whole_config = {}
-        self.config_path = PathTools.get_path_of_config_json()
+        self.config_path = PT.get_path_of_config_json()
         if self.is_present():
             self.load()
         else:

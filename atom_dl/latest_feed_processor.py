@@ -18,10 +18,11 @@ class LatestFeedProcessor:
 
         config = Config()
         last_feed_job_definitions = config.get_last_feed_job_definitions()
+        storage_path = config.get_storage_path()
 
         job_creators = []
         for job_definition in last_feed_job_definitions:
-            job_creators.append(JobCreator(job_definition))
+            job_creators.append(JobCreator(job_definition, storage_path))
 
         Log.debug('Start collecting jobs...')
         jobs = []

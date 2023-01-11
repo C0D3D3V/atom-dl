@@ -5,7 +5,7 @@ import orjson
 
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import FeedInfoExtractor
-from atom_dl.utils import Log, PathTools
+from atom_dl.utils import Log, PathTools as PT
 
 
 class FeedUpdater:
@@ -21,7 +21,7 @@ class FeedUpdater:
         if len(latest_feed_list) == 0:
             return
 
-        path_of_feed_json = PathTools.get_path_of_new_feed_json(feed_name)
+        path_of_feed_json = PT.get_path_of_new_feed_json(feed_name)
 
         # Serializing json
         print('Serializing feed json')
