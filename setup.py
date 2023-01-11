@@ -29,7 +29,7 @@ setup(
             'atom-dl = atom_dl.main:main',
         ],
     },
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     install_requires=[
         'aiofiles>=0.6.0',
         'aiohttp>=3.8.1',

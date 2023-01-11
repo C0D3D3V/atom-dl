@@ -10,7 +10,7 @@ import lxml.html
 
 from lxml import etree
 
-from atom_dl.feed_extractor.common import FeedInfoExtractor
+from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
 
 
 class IbooksFIE(FeedInfoExtractor):
@@ -158,13 +158,11 @@ class IbooksFIE(FeedInfoExtractor):
 
         # Download and extract all pages
         result_list = []
-        asyncio.run(
-            self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list)
-        )
+        asyncio.run(self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list))
 
         return result_list
 
-    def get_top_category(self, post: Dict) -> str:
+    def get_top_category(self, post: Dict) -> TopCategory:
         """
         Categories on ibooks.to:
         - Bücher
@@ -212,12 +210,12 @@ class IbooksFIE(FeedInfoExtractor):
 
         # Handle for special top category
         category_map = {
-            "E-Learning Videos": "Videos",
-            "Manga": "Mangas",
-            "Comic & Manga": "Comics",
-            "Zeitungen": "Zeitungen",
-            "Magazine & Zeitschriften": "Magazine",
-            "Sachbuch & Fachbuch": "Fachbücher",
+            "E-Learning Videos": TopCategory.videos,
+            "Manga": TopCategory.manga,
+            "Comic & Manga": TopCategory.comics,
+            "Zeitungen": TopCategory.newspapers,
+            "Magazine & Zeitschriften": TopCategory.magazines,
+            "Sachbuch & Fachbuch": TopCategory.textbooks,
         }
 
         post_categories = post.get('categories', [])
@@ -227,7 +225,7 @@ class IbooksFIE(FeedInfoExtractor):
                     return top_category
 
         # All others are in top category Ebooks
-        return "Bücher"
+        return TopCategory.books
 
     def get_package_name(self, post: Dict) -> str:
         """
@@ -258,9 +256,9 @@ class IbooksFIE(FeedInfoExtractor):
         post_top_category = self.get_top_category(post)
         post_title = post.get('title', '')
         if post_top_category == 'Magazine':
-            return post_title.split(' – aktuelle Ausgabe').strip()
+            return post_title.rsplit(' – aktuelle Ausgabe', 1)[0].strip()
         elif post_top_category == 'Zeitungen':
-            return post_title.split(' vom ').strip()
+            return post_title.rsplit(' vom ')[0].strip()
         elif post_top_category in ['Comics', 'Manga']:
             return self.brackets_pattern.sub('', post_title).strip()
         else:

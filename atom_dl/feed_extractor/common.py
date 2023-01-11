@@ -3,6 +3,7 @@ import time
 import traceback
 
 from datetime import datetime
+from enum import Enum
 from itertools import cycle
 from typing import List, Dict
 
@@ -13,6 +14,22 @@ import requests
 from lxml import etree
 
 from requests.exceptions import RequestException
+
+
+class TopCategory(Enum):
+    books = 'Bücher'
+    textbooks = 'Fachbücher'
+    language_teaching_material = 'Sprachunterricht'
+    magazines = 'Magazine'
+    newspapers = 'Zeitungen'
+    comics = 'Comics'
+    manga = 'Manga'
+    audios = 'Audios'
+    videos = 'Videos'
+    movies = 'Filme'
+    series = 'Serien'
+    anime = 'Anime'
+    software = 'Software'
 
 
 class FeedInfoExtractor:
@@ -255,7 +272,7 @@ class FeedInfoExtractor:
         """A string for getting the FeedInfoExtractor with get_feed_extractor"""
         return cls.__name__[:-3]
 
-    def get_top_category(self, post: Dict) -> str:
+    def get_top_category(self, post: Dict) -> TopCategory:
         """
         We divide the downloads into the following directories:
         - Bücher
@@ -292,7 +309,7 @@ class FeedInfoExtractor:
         result_list = self._real_download_latest_feed()
 
         endTime = time.time()
-        endTimeStr = time.strftime("%d%m %H:%M:%S", time.localtime(endTime))
+        endTimeStr = time.strftime("%d.%m %H:%M:%S", time.localtime(endTime))
         tookMs = endTime - startTime
         print(f'{self.fie_key()} feed downloader finished at {endTimeStr} and took {tookMs:.2f}s')
 

@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 import lxml.html
 
-from atom_dl.feed_extractor.common import FeedInfoExtractor
+from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
 
 
 class LanguagelearningFIE(FeedInfoExtractor):
@@ -14,7 +14,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
     max_page_pattern = re.compile(r'<a class="page-numbers" href="https://languagelearning.site/page/(\d+)/">')
     feed_url = 'https://languagelearning.site/feed/atom/?paged={page_id}'
 
-    def page_metadata_extractor(self, page_idx: int, page_link: str, page_text: str, status_dict: Dict):
+    def page_metadata_extractor(self, page_idx: int, page_link: str, page_text: str, status_dict: Dict) -> Dict:
         """
         Date filtering is done in crawl_all_atom_page_links
         thats why we do not need to use page_idx and status_dict here
@@ -157,20 +157,18 @@ class LanguagelearningFIE(FeedInfoExtractor):
         # Download and extract all pages
         result_list = []
         if len(page_links_list) > 0:
-            asyncio.run(
-                self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list)
-            )
+            asyncio.run(self.fetch_all_pages_and_extract(page_links_list, self.page_metadata_extractor, result_list))
 
         return result_list
 
-    def get_top_category(self, post: Dict) -> str:
+    def get_top_category(self, post: Dict) -> TopCategory:
         """
         In the first place, everything is on the page educational material or more precise language teaching material,
         but these differ subcategories.
         """
 
         # All posts are in top category language teaching material
-        return "Sprachunterricht"
+        return TopCategory.language_teaching_material
 
     def get_package_name(self, post: Dict) -> str:
         """

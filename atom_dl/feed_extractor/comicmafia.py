@@ -10,7 +10,7 @@ import lxml.html
 
 from lxml import etree
 
-from atom_dl.feed_extractor.common import FeedInfoExtractor
+from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
 
 
 class ComicmafiaFIE(FeedInfoExtractor):
@@ -158,7 +158,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
 
         return result_list
 
-    def get_top_category(self, post: Dict) -> str:
+    def get_top_category(self, post: Dict) -> TopCategory:
         """
         Categories on comicmafia.to:
         - Comics
@@ -170,13 +170,13 @@ class ComicmafiaFIE(FeedInfoExtractor):
         post_title = post.get('title', '')
         post_download_links = post.get('download_links', [])
         if post_title.lower().find('manga') >= 0:
-            return "Mangas"
+            return TopCategory.manga
         for post_download_link in post_download_links:
             if post_download_link.lower().find('manga') >= 0:
-                return "Mangas"
+                return TopCategory.manga
 
         # All others are in top category Comics
-        return "Comics"
+        return TopCategory.comics
 
     def get_package_name(self, post: Dict) -> str:
         """

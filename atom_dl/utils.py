@@ -257,6 +257,25 @@ class PathTools:
         return os.path.join(*sanitized_path)
 
     @staticmethod
+    def get_abs_path(path: str):
+        return str(Path(path).resolve())
+
+    @staticmethod
+    def make_path(path: str, *filenames: str):
+        result_path = Path(path)
+        for filename in filenames:
+            result_path = result_path / filename
+        return str(result_path)
+
+    @staticmethod
+    def make_base_dir(path_to_file: str):
+        Path(path_to_file).parent.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def make_dirs(path_to_dir: str):
+        Path(path_to_dir).mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
     def get_user_config_directory():
         """Returns a platform-specific root directory for user config settings."""
         # On Windows, prefer %LOCALAPPDATA%, then %APPDATA%, since we can expect the

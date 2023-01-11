@@ -1,16 +1,22 @@
 from typing import Dict, List
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor
+from atom_dl.utils import PathTools as PT, Log
 
 
 class JobCreator:
     def __init__(
         self,
         job_description: Dict,
+        storage_path: str,
     ):
+        self.storage_path = storage_path
+        if len(job_description) == 0:
+            Log.warning('Empty job description found! All Posts are jobs!')
         self.in_title = job_description.get('in_title', None)
         self.in_feeds = self.as_list_or_none(job_description.get('in_feeds', None))
         self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
+        self.not_in_categories = self.as_list_or_none(job_description.get('not_in_categories', None))
 
     def as_list_or_none(self, obj) -> List:
         if obj is not None and not isinstance(obj, list):
@@ -22,8 +28,9 @@ class JobCreator:
         Creates an job dictionary based on a given post
         """
 
-        top_category = extractor.get_top_category(post)
-        package_name = extractor.get_package_name(post)
+        top_category = extractor.get_top_category(post).value
+        package_name = PT.to_valid_name(extractor.get_package_name(post))
+        destination_path = PT.make_path(self.storage_path, top_category, package_name)
         extractor_key = extractor.fie_key()
 
         job_dict = {
@@ -44,25 +51,34 @@ class JobCreator:
         If the post matches the job description, an job item is returned, else None is returned.
         """
 
-        matches_job_definition = True
         if self.in_title is not None:
             # Check if title matches job definition
-            matches_job_definition = False
-            if post.get('title', '').find(self.in_title) >= 0:
-                matches_job_definition = True
+            if post.get('title', '').find(self.in_title) < 0:
+                return None
 
         if self.in_categories is not None:
             # Check if any category matches any category in job definition
             matches_job_definition = False
+            post_categories = post.get('categories', [])
             for category in self.in_categories:
-                if category in post.get('categories', []):
+                if category in post_categories:
                     matches_job_definition = True
                     break
+            if not matches_job_definition:
+                return None
 
-        if matches_job_definition:
-            return self.create_job(post, extractor)
-        else:
-            return None
+        if self.not_in_categories is not None:
+            # Check if any category matches any category in job definition
+            matches_job_definition = True
+            post_categories = post.get('categories', [])
+            for category in self.not_in_categories:
+                if category in post_categories:
+                    matches_job_definition = False
+                    break
+            if not matches_job_definition:
+                return None
+
+        return self.create_job(post, extractor)
 
     def can_handle_feed(self, feed_name: str):
         if self.in_feeds is None or feed_name in self.in_feeds:

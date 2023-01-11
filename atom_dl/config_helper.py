@@ -85,7 +85,7 @@ class Config:
             return []
 
     def get_storage_path(self) -> str:
-        return self.get_property('storage_path')
+        return PT.get_abs_path(self.get_property('storage_path'))
 
     # ---------------------------- SETTERS ------------------------------------
 
