@@ -766,8 +766,10 @@ class Toolbar:
     def __init__(self, device):
         self.device = device
         self.url = "/toolbar"
+        self.status = None
+        self.limit_enabled = None
 
-    def get_status(self, params=None):
+    def get_status(self):
         resp = self.device.action(self.url + "/getStatus")
         return resp
 
@@ -1599,7 +1601,7 @@ class MyJdApi:
             if params is not None:
                 for param in params:
                     if not isinstance(param, list):
-                        params_request += [orjson.dumps(param).decode('utf-8')]
+                        params_request += [orjson.dumps(param).decode('utf-8')]  # pylint: disable=maybe-no-member
                     else:
                         params_request += [param]
             params_request = {
@@ -1608,7 +1610,7 @@ class MyJdApi:
                 "params": params_request,
                 "rid": self.__request_id,
             }
-            data = orjson.dumps(params_request).decode('utf-8')
+            data = orjson.dumps(params_request).decode('utf-8')  # pylint: disable=maybe-no-member
             # Removing quotes around null elements.
             data = data.replace('"null"', "null")
             data = data.replace("'null'", "null")
@@ -1629,12 +1631,13 @@ class MyJdApi:
                 return None
         if encrypted_response.status_code != 200:
             try:
-                error_msg = orjson.loads(encrypted_response.text)
-            except orjson.JSONDecodeError:
+                error_msg = orjson.loads(encrypted_response.text)  # pylint: disable=maybe-no-member
+            except orjson.JSONDecodeError:  # pylint: disable=maybe-no-member
                 try:
+                    # pylint: disable=maybe-no-member
                     error_msg = orjson.loads(self.__decrypt(self.__device_encryption_token, encrypted_response.text))
-                except orjson.JSONDecodeError:
-                    raise MYJDDecodeException("Failed to decode response: {}", encrypted_response.text)
+                except orjson.JSONDecodeError:  # pylint: disable=maybe-no-member
+                    raise MYJDDecodeException(f"Failed to decode response: {encrypted_response.text}")
             msg = (
                 "\n\tSOURCE: "
                 + error_msg["src"]
@@ -1657,7 +1660,7 @@ class MyJdApi:
                 response = self.__decrypt(self.__server_encryption_token, encrypted_response.text)
         else:
             response = self.__decrypt(self.__device_encryption_token, encrypted_response.text)
-        jsondata = orjson.loads(response.decode('utf-8'))
+        jsondata = orjson.loads(response.decode('utf-8'))  # pylint: disable=maybe-no-member
         if jsondata['rid'] != self.__request_id:
             self.update_request_id()
             return None

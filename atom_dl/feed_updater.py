@@ -25,7 +25,7 @@ class FeedUpdater:
 
         # Serializing json
         print('Serializing feed json')
-        json_object = orjson.dumps(latest_feed_list, option=orjson.OPT_INDENT_2)  # ensure_ascii=False
+        json_object = orjson.dumps(latest_feed_list, option=orjson.OPT_INDENT_2)  # pylint: disable=maybe-no-member
 
         # Writing to sample.json
         print(f'Saving latest feed json to {path_of_feed_json}')

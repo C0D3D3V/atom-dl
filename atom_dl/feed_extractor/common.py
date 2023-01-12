@@ -248,7 +248,7 @@ class FeedInfoExtractor:
         status_dict['stop'] = True
 
     async def display_status(self, status_dict):
-        spinner = cycle('/|\-')
+        spinner = cycle('/|\\-')
 
         while (
             status_dict.get('done', 0) + status_dict.get('skipped', 0) + status_dict.get('failed', 0)

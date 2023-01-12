@@ -29,13 +29,14 @@ class Config:
         try:
             with open(self.config_path, 'r', encoding='utf-8') as config_file:
                 config_raw = config_file.read()
-                self._whole_config = orjson.loads(config_raw)
+                self._whole_config = orjson.loads(config_raw)  # pylint: disable=maybe-no-member
         except IOError:
             raise ValueError(f'No config found in "{self.config_path}"!')
 
     def _save(self):
         # Saves the JSON object back to file
         with open(self.config_path, 'w+', encoding='utf-8') as config_file:
+            # pylint: disable=maybe-no-member
             config_formatted = orjson.dumps(self._whole_config, option=orjson.OPT_INDENT_2)
             config_file.write(config_formatted)
 
