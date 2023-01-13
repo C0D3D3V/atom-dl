@@ -27,7 +27,7 @@ class Config:
     def load(self):
         # Opens the configuration file and parse it to a JSON object
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as config_file:
+            with open(self.config_path, 'rb') as config_file:
                 config_raw = config_file.read()
                 self._whole_config = orjson.loads(config_raw)  # pylint: disable=maybe-no-member
         except IOError:

@@ -37,6 +37,7 @@ setup(
         'rarfile>=4.0',
         'requests>2.28.1',
         'orjson>=3.8.3',
+        'colorama>=0.4.6',
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

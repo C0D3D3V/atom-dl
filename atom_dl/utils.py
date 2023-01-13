@@ -109,6 +109,18 @@ def formatSeconds(secs, delim=':', msec=False):
     return '%s.%03d' % (ret, time.milliseconds) if msec else ret
 
 
+def load_list_from_json(json_file_path: str) -> List[Dict]:
+    """
+    Return the list stored in a json file or an empty list
+    """
+    if os.path.exists(json_file_path):
+        with open(json_file_path, 'rb') as config_file:
+            raw_json = config_file.read()
+            return orjson.loads(raw_json)  # pylint: disable=maybe-no-member
+    else:
+        return []
+
+
 def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
     """
     This appends a list of dictionaries to the end of a json file.

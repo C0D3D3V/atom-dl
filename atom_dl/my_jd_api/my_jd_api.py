@@ -9,6 +9,7 @@ import time
 
 # from urllib.request import urlopen
 from urllib.parse import quote
+from typing import Dict
 
 import requests
 
@@ -302,7 +303,7 @@ class Linkgrabber:
         resp = self.device.action(self.url + "/addContainer", params)
         return resp
 
-    def add_links(self, query):
+    def add_links(self, query) -> Dict:
         """
         Add links to the linkcollector
 
@@ -339,7 +340,7 @@ class Linkgrabber:
                     "id" = (long)
                   }
         """
-        resp = self.device.action("/linkgrabberv2/addLinks", query)
+        resp = self.device.action("/linkgrabberv2/addLinks", [query])
         return resp
 
     def cleanup(self, link_ids, package_ids, action, mode, selection_type):
@@ -518,7 +519,7 @@ class Linkgrabber:
                     "unhandled" = (int)
                   }
         """
-        resp = self.device.action("/linkgrabberv2/queryLinkCrawlerJobs", query)
+        resp = self.device.action("/linkgrabberv2/queryLinkCrawlerJobs", [query])
         return resp
 
     def query_links(self, queryParams):
@@ -592,7 +593,7 @@ class Linkgrabber:
             }
         """
 
-        resp = self.device.action(self.url + "/queryLinks", queryParams)
+        resp = self.device.action(self.url + "/queryLinks", [queryParams])
         return resp
 
     def query_packages(

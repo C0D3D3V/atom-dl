@@ -107,18 +107,18 @@ class FeedInfoExtractor:
         self, page_links_list: List, extractor_method, result_list: List[Dict], status_dict: Dict
     ):
         semaphore = asyncio.Semaphore(self.max_parallel_downloads)
+        gather_jobs = asyncio.gather(
+            *[
+                self.fetch_page_and_extract(page_idx, page_link, extractor_method, result_list, status_dict, semaphore)
+                for page_idx, page_link in enumerate(page_links_list)
+            ],
+        )
         try:
-            await asyncio.gather(
-                *[
-                    self.fetch_page_and_extract(
-                        page_idx, page_link, extractor_method, result_list, status_dict, semaphore
-                    )
-                    for page_idx, page_link in enumerate(page_links_list)
-                ],
-                return_exceptions=True,
-            )
+            await gather_jobs
         except Exception:
             traceback.print_exc()
+            gather_jobs.cancel()
+            exit(1)
 
     async def fetch_all_pages_and_extract(self, page_links_list: List, extractor_method, result_list: List[Dict]):
         max_links_num = len(page_links_list)
@@ -213,17 +213,20 @@ class FeedInfoExtractor:
         self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
     ):
         semaphore = asyncio.Semaphore(self.max_parallel_downloads)
+        gather_jobs = asyncio.gather(
+            *[
+                self.crawl_atom_page_links(
+                    page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, semaphore
+                )
+                for page_idx in range(1, int(max_page_num) + 1)
+            ]
+        )
         try:
-            await asyncio.gather(
-                *[
-                    self.crawl_atom_page_links(
-                        page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, semaphore
-                    )
-                    for page_idx in range(1, int(max_page_num) + 1)
-                ]
-            )
+            await gather_jobs
         except Exception:
             traceback.print_exc()
+            gather_jobs.cancel()
+            exit(1)
 
     def get_status_dict(self, total: int, preamble: str, done_msg: str):
         return {

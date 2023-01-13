@@ -9,11 +9,13 @@ import traceback
 
 from logging.handlers import RotatingFileHandler
 
-# import asyncio  # noqa: F401 pylint: disable=unused-import
+import asyncio  # noqa: F401 pylint: disable=unused-import
 import requests  # noqa: F401 pylint: disable=unused-import
 
-from atom_dl.my_jd_api import MyJdApi, MYJDException
+from colorama import just_fix_windows_console
+
 from atom_dl.config_helper import Config
+from atom_dl.jobs_feeder import JobsFeeder
 from atom_dl.latest_feed_processor import LatestFeedProcessor
 from atom_dl.utils import (
     check_debug,
@@ -61,31 +63,6 @@ def check_mandatory_settings():
         Log.error("Please make sure that the specified download folder is writable.")
         exit(-1)
 
-    try:
-        my_jd_username = config.get_my_jd_username()
-        my_jd_password = config.get_my_jd_password()
-        my_jd_device = config.get_my_jd_device()
-    except ValueError as config_error:
-        Log.error(str(config_error))
-        Log.error(
-            "Please set all MyJDownloader settings in your configuration:\n"
-            + "{my_jd_username, my_jd_password, my_jd_device}"
-        )
-        exit(-1)
-    Log.info("Try to connect to MyJDownloader...")
-    try:
-        jd = MyJdApi()
-        jd.set_app_key("Atom-Downloader")
-        jd.connect(my_jd_username, my_jd_password)
-        _ = jd.get_device(my_jd_device)
-        jd.disconnect()
-    except MYJDException as config_error:
-        Log.warning(str(config_error))
-        Log.warning(
-            "Warning no connection could be established with MyJDownloader.\n"
-            + "Pending jobs are pushed to an offline queue if JDownloader remains unreachable."
-        )
-
 
 def setup_logger():
     log_formatter = logging.Formatter('%(asctime)s  %(levelname)s  {%(module)s}  %(message)s', '%Y-%m-%d %H:%M:%S')
@@ -110,7 +87,7 @@ def setup_logger():
 
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    # logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
 
     logging.info('--- atom-dl started ---------------------')
     Log.info('Atom Downloader starting...')
@@ -169,6 +146,13 @@ def get_parser():
         help=('Downloads the latest feeds and runs the defined feed workers on it'),
     )
 
+    group.add_argument(
+        '-fjd',
+        '--feed-jdownloader',
+        action='store_true',
+        help=('Feed all jobs to JDownloader'),
+    )
+
     parser.add_argument(
         '-scv',
         '--skip-cert-verify',
@@ -193,7 +177,7 @@ def get_parser():
 # --- called at the program invocation: -------------------------------------
 def main(args=None):
     """The main routine."""
-
+    just_fix_windows_console()
     parser = get_parser()
     args = parser.parse_args(args)
     setup_logger()
@@ -205,6 +189,10 @@ def main(args=None):
             process_lock()
             latest_feed_processor = LatestFeedProcessor(verify_tls_certs)
             latest_feed_processor.process()
+        elif args.feed_jdownloader:
+            process_lock()
+            jobs_feeder = JobsFeeder()
+            jobs_feeder.process()
 
         Log.success('All done. Exiting..')
         process_unlock()
