@@ -15,6 +15,8 @@ from lxml import etree
 
 from requests.exceptions import RequestException
 
+from atom_dl.utils import formatSeconds
+
 
 class TopCategory(Enum):
     books = 'Bücher'
@@ -311,7 +313,7 @@ class FeedInfoExtractor:
         endTime = time.time()
         endTimeStr = time.strftime("%d.%m %H:%M:%S", time.localtime(endTime))
         tookMs = endTime - startTime
-        print(f'{self.fie_key()} feed downloader finished at {endTimeStr} and took {tookMs:.2f}s')
+        print(f'{self.fie_key()} feed downloader finished at {endTimeStr} and took {formatSeconds(tookMs)}')
 
         return result_list
 

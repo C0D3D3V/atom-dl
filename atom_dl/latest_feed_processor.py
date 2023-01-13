@@ -2,8 +2,7 @@ from atom_dl.config_helper import Config
 from atom_dl.feed_extractor import gen_extractors
 from atom_dl.feed_updater import FeedUpdater
 from atom_dl.job_creator import JobCreator
-from atom_dl.jobs_worker import JobsWorker
-from atom_dl.utils import Log
+from atom_dl.utils import PathTools as PT, Log, append_list_to_json
 
 
 class LatestFeedProcessor:
@@ -52,5 +51,7 @@ class LatestFeedProcessor:
         if len(jobs) == 0:
             return
 
-        worker = JobsWorker()
-        worker.handle_jobs(jobs)
+        Log.info('Appending jobs to jobs queue...')
+        path_of_jobs_json = PT.get_path_of_jobs_json()
+        append_list_to_json(path_of_jobs_json, jobs)
+        Log.info(f'Jobs appended to: {path_of_jobs_json}')

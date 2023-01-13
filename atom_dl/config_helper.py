@@ -34,10 +34,10 @@ class Config:
             raise ValueError(f'No config found in "{self.config_path}"!')
 
     def _save(self):
+        # pylint: disable=maybe-no-member
+        config_formatted = orjson.dumps(self._whole_config, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
         # Saves the JSON object back to file
-        with open(self.config_path, 'w+', encoding='utf-8') as config_file:
-            # pylint: disable=maybe-no-member
-            config_formatted = orjson.dumps(self._whole_config, option=orjson.OPT_INDENT_2)
+        with open(self.config_path, 'w+b') as config_file:
             config_file.write(config_formatted)
 
     def get_config_path(self) -> str:

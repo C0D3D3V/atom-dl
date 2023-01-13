@@ -1,11 +1,9 @@
 from datetime import datetime, timezone
 from typing import List, Dict
 
-import orjson
-
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import FeedInfoExtractor
-from atom_dl.utils import Log, PathTools as PT
+from atom_dl.utils import Log, PathTools as PT, append_list_to_json
 
 
 class FeedUpdater:
@@ -21,16 +19,18 @@ class FeedUpdater:
         if len(latest_feed_list) == 0:
             return
 
-        path_of_feed_json = PT.get_path_of_new_feed_json(feed_name)
-
         # Serializing json
         print('Serializing feed json')
-        json_object = orjson.dumps(latest_feed_list, option=orjson.OPT_INDENT_2)  # pylint: disable=maybe-no-member
+        path_of_feed_json = PT.get_path_of_feed_json(feed_name)
+        append_list_to_json(path_of_feed_json, latest_feed_list)
+        print(f'Appended latest feed json to {path_of_feed_json}')
 
-        # Writing to sample.json
-        print(f'Saving latest feed json to {path_of_feed_json}')
-        with open(path_of_feed_json, "w", encoding='utf-8') as output_file:
-            output_file.write(json_object)
+        # Writing only latest feed to file
+        # path_of_latest_feed_json = PT.get_path_of_new_feed_json(feed_name)
+        # print(f'Saving latest feed json to {path_of_latest_feed_json}')
+        # json_object = orjson.dumps(latest_feed_list, option=orjson.OPT_INDENT_2)  # pylint: disable=maybe-no-member
+        # with open(path_of_latest_feed_json, "wb") as output_file:
+        #     output_file.write(json_object)
 
     def update(self) -> List[Dict]:
         """
@@ -56,9 +56,9 @@ class FeedUpdater:
         latest_feed_list = self.feed_extractor.download_latest_feed()
 
         # update json
-        # self.update_feed_json(feed_name, latest_feed_list)
+        self.update_feed_json(feed_name, latest_feed_list)
 
-        # config.set_last_feed_update_dates(feed_name, started_time_str)
+        config.set_last_feed_update_dates(feed_name, started_time_str)
 
         Log.success(f'Downloaded {feed_name} latest feed')
         return latest_feed_list

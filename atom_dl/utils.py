@@ -1,12 +1,17 @@
+import collections
 import html
 import itertools
+import math
 import os
 import re
 import sys
 import tempfile
 import unicodedata
 
+from typing import List, Dict
 from pathlib import Path
+
+import orjson
 
 
 def check_verbose() -> bool:
@@ -48,6 +53,100 @@ def process_unlock():
         Path(path).unlink()
     except OSError:
         pass
+
+
+_timetuple = collections.namedtuple('Time', ('hours', 'minutes', 'seconds', 'milliseconds'))
+
+
+def float_or_none(v, scale=1, invscale=1, default=None):
+    if v is None:
+        return default
+    try:
+        return float(v) * invscale / scale
+    except (ValueError, TypeError):
+        return default
+
+
+def format_decimal_suffix(num, fmt='%d%s', *, factor=1000):
+    """Formats numbers with decimal sufixes like K, M, etc"""
+    num, factor = float_or_none(num), float(factor)
+    if num is None or num < 0:
+        return None
+    POSSIBLE_SUFFIXES = 'kMGTPEZY'
+    exponent = 0 if num == 0 else min(int(math.log(num, factor)), len(POSSIBLE_SUFFIXES))
+    suffix = ['', *POSSIBLE_SUFFIXES][exponent]
+    if factor == 1024:
+        suffix = {'k': 'Ki', '': ''}.get(suffix, f'{suffix}i')
+    converted = num / (factor**exponent)
+    return fmt % (converted, suffix)
+
+
+def format_bytes(bytes):
+    return format_decimal_suffix(bytes, '%.2f%sB', factor=1024) or 'N/A'
+
+
+def append_get_idx(list_obj, item):
+    idx = len(list_obj)
+    list_obj.append(item)
+    return idx
+
+
+def timetuple_from_msec(msec):
+    secs, msec = divmod(msec, 1000)
+    mins, secs = divmod(secs, 60)
+    hrs, mins = divmod(mins, 60)
+    return _timetuple(hrs, mins, secs, msec)
+
+
+def formatSeconds(secs, delim=':', msec=False):
+    time = timetuple_from_msec(secs * 1000)
+    if time.hours:
+        ret = '%d%s%02d%s%02d' % (time.hours, delim, time.minutes, delim, time.seconds)
+    elif time.minutes:
+        ret = '%d%s%02d' % (time.minutes, delim, time.seconds)
+    else:
+        ret = '%d' % time.seconds
+    return '%s.%03d' % (ret, time.milliseconds) if msec else ret
+
+
+def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
+    """
+    This appends a list of dictionaries to the end of a json file.
+    If the json file does not exist a new json file is created.
+    This functions makes strict assumptions about the file format.
+    The format must be the same as from orjson output with the options orjson.OPT_APPEND_NEWLINE | orjson.OPT_INDENT_2.
+    Like:
+    ```
+    [
+      {
+        "test1": 1,
+      },
+      {
+        "test2": "2",
+        "test3": false
+      }
+    ]
+
+    ```
+    """
+    # pylint: disable=maybe-no-member
+    json_bytes = orjson.dumps(list_to_append, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
+    try:
+        if os.path.isfile(json_file_path):
+            o_file = open(json_file_path, 'r+b')
+            o_file.seek(-3, os.SEEK_END)  # Remove \n]\n
+            o_file.write(b',\n')
+            o_file.write(json_bytes[2:])  # Remove [\n
+        else:
+            o_file = open(json_file_path, 'wb')
+            o_file.write(json_bytes)
+
+    except (OSError, IOError) as err:
+        Log.error(f'Error: Could not append List to json: {json_file_path} Reason: {str(err)}')
+        exit(-1)
+    finally:
+        if o_file is not None:
+            o_file.close()
 
 
 RESET_SEQ = '\033[0m'
@@ -366,3 +465,12 @@ class PathTools:
     def get_path_of_new_feed_json(downloader_name: str):
         feeds_dir = PathTools.get_feeds_directory()
         return PathTools.get_unused_filename(feeds_dir, downloader_name, '.json')
+
+    @staticmethod
+    def get_path_of_feed_json(downloader_name: str):
+        feeds_dir = PathTools.get_feeds_directory()
+        return str(Path(feeds_dir) / f'{downloader_name}.json')
+
+    @staticmethod
+    def get_path_of_jobs_json():
+        return str(Path(PathTools.get_project_data_directory()) / 'jobs.json')
