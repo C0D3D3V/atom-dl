@@ -4,16 +4,18 @@ import traceback
 
 from atom_dl.config_helper import Config
 from atom_dl.my_jd_api import MyJdApi, MYJDException
-from atom_dl.utils import Log, load_list_from_json, PathTools as PT
+from atom_dl.utils import Log, load_list_from_json, PathTools as PT, append_list_to_json
 
 
 class JobsFeeder:
     def __init__(self):
         self.finished = False
-        self.all_jobs = []
+        self.new_jobs = []
         self.max_parallel_decrypt_jobs = 15
         self.decrypt_jobs = []
         self.decrypted_jobs = []
+        self.urls_jobs = []
+        self.checked_jobs = []
 
         Log.info("Try to connect to MyJDownloader...")
         config = Config()
@@ -48,9 +50,9 @@ class JobsFeeder:
     def process(self):
         Log.debug('Start working on jobs...')
         json_file_path = PT.get_path_of_jobs_json()
-        self.all_jobs = load_list_from_json(json_file_path)
+        self.new_jobs = load_list_from_json(json_file_path)
 
-        if len(self.all_jobs) > 0:
+        if len(self.new_jobs) > 0:
             asyncio.run(self.jd_job_chain())
 
     async def jd_job_chain(self):
@@ -59,6 +61,7 @@ class JobsFeeder:
                 self.send_jobs_to_jd(),
                 self.check_decrypt_jobs(),
                 self.check_decrypted_jobs(),
+                self.check_urls_jobs(),
                 self.check_finish_condition(),
             ]
         )
@@ -69,17 +72,24 @@ class JobsFeeder:
             gather_jobs.cancel()
             exit(1)
 
+        append_list_to_json(PT.get_path_of_checked_jobs_json(), self.checked_jobs)
+
     async def check_finish_condition(self):
         while True:
-            if len(self.all_jobs) == 0 and len(self.decrypt_jobs) == 0 and len(self.decrypted_jobs) == 0:
+            if (
+                len(self.new_jobs) == 0
+                and len(self.decrypt_jobs) == 0
+                and len(self.decrypted_jobs) == 0
+                and len(self.urls_jobs) == 0
+            ):
                 self.finished = True
                 return
             await asyncio.sleep(1)
 
     async def send_jobs_to_jd(self):
         while not self.finished:
-            if len(self.all_jobs) > 0 and len(self.decrypt_jobs) < self.max_parallel_decrypt_jobs:
-                next_job = self.all_jobs.pop()
+            if len(self.new_jobs) > 0 and len(self.decrypt_jobs) < self.max_parallel_decrypt_jobs:
+                next_job = self.new_jobs.pop(0)
                 add_querry = {
                     "assignJobID": True,
                     # "autoExtract": False,
@@ -117,30 +127,40 @@ class JobsFeeder:
                 }
                 result = self.jd_device.linkgrabber.query_link_crawler_jobs(status_querry)
 
-                for job_status in result:
-                    job_status_crawling = job_status.get('crawling', False)
-                    job_status_id = job_status.get('jobId', None)
-                    if job_status_id is None:
-                        continue  # should not happen
-                    if not job_status_crawling:
+                for jobId in jobIds:
+                    found = False
+                    job_status_crawling = True
+                    job_status_checking = True
+                    for job_status in result:
+                        job_status_id = job_status.get('jobId', None)
+                        if job_status_id is None:
+                            continue  # should not happen
+                        if job_status_id == jobId:
+                            found = True
+                            job_status_crawling = job_status.get('crawling', False)
+                            job_status_checking = job_status.get('checking', False)
+                            break
+                    # We assume the job is finished if it was not found
+                    if not found or (not job_status_crawling and not job_status_checking):
                         job_idx = None
                         for idx, decrypt_job in enumerate(self.decrypt_jobs):
                             job_id = decrypt_job.get('crawl_job_id', None)
                             if job_id is None:
                                 continue  # should not happen
-                            if job_id == job_status_id:
+                            if job_id == jobId:
                                 job_idx = idx
                                 break
                         if job_idx is not None:
                             decrypted_job = self.decrypt_jobs.pop(job_idx)
                             # Add job to queue to check result of decryption
                             self.decrypted_jobs.append(decrypted_job)
+
             await asyncio.sleep(1)
 
     async def check_decrypted_jobs(self):
         while not self.finished:
             if len(self.decrypted_jobs) > 0:
-                next_decrypted_job = self.decrypted_jobs.pop()
+                next_decrypted_job = self.decrypted_jobs.pop(0)
 
                 job_id = next_decrypted_job.get('crawl_job_id', None)
                 if job_id is None:
@@ -166,34 +186,56 @@ class JobsFeeder:
                     "variantName": False,
                     "variants": False,
                 }
-                is_online = False
-                needs_retry = False
                 decrypted_links = self.jd_device.linkgrabber.query_links(link_querry)
 
-                remove_jobs = []
+                next_decrypted_job['decrypted_links'] = decrypted_links
+                self.urls_jobs.append(next_decrypted_job)
+
+                await asyncio.sleep(0)
+            else:
+                await asyncio.sleep(1)
+
+    async def check_urls_jobs(self):
+        while not self.finished:
+            if len(self.urls_jobs) > 0:
+                next_retry_job = self.urls_jobs.pop(0)
+
+                decrypted_links = next_retry_job.get('decrypted_links', [])
+                retry_counter = next_retry_job.get('retry', 0)
+
+                is_online = False
+                needs_retry = False
+                remove_links_ids = []
                 for decrypted_link in decrypted_links:
                     availability = decrypted_link.get('availability', 'OFFLINE')
+                    decrypted_link_id = decrypted_link.get('uuid', None)
+                    if decrypted_link_id is None:
+                        continue  # should not happen
                     if availability == 'ONLINE':
                         is_online = True
                     elif availability in ['TEMP_UNKNOWN', 'UNKNOWN']:
                         needs_retry = True
-                        pass  # retry
+                        remove_links_ids.append(decrypted_link_id)
                     elif availability == 'OFFLINE':
-                        is_online = False
-                        pass  # remove
+                        remove_links_ids.append(decrypted_link_id)
 
-                next_decrypted_job['decrypted_links'] = decrypted_links 
-                if not is_online and not needs_retry:
-                    # finished task, status = offline
-                elif is_online:
-                    # finished task, status = online
-                elif needs_retry:
-                    if retries < 2:
-                        #retry entscheide in remove function -> entferne erst und wenn es unkow war dann retry wenn versuch noch verfügbar ansonsten finish mit status unkow
+                if len(remove_links_ids) > 0:
+                    _ = self.jd_device.linkgrabber.remove_links(remove_links_ids, [])
+                    pass
+
+                if retry_counter < 2 and is_online is False and needs_retry is True:
+                    # Put back in queue
+                    next_retry_job['retry'] = retry_counter + 1
+                    self.new_jobs.append(next_retry_job)
+                else:
+                    # Finish job
+                    if is_online:
+                        next_retry_job['status'] = 'ONLINE'
+                    elif needs_retry:
+                        next_retry_job['status'] = 'UNKNOWN'
                     else:
-                        # finished task, status = unknow
-
-
+                        next_retry_job['status'] = 'OFFLINE'
+                    self.checked_jobs.append(next_retry_job)
 
                 await asyncio.sleep(0)
             else:

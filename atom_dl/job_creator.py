@@ -36,7 +36,7 @@ class JobCreator:
         job_dict = {
             "title": post.get("title", 'Untitled'),
             "page_link": post.get("page_link", 'No page_link'),
-            "page_id": post.get("page_link", 'No page_id'),
+            "page_id": post.get("page_id", 'No page_id'),
             "download_links": post.get("download_links", []),
             "destination_path": destination_path,
             "package_name": package_name,

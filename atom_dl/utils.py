@@ -486,3 +486,7 @@ class PathTools:
     @staticmethod
     def get_path_of_jobs_json():
         return str(Path(PathTools.get_project_data_directory()) / 'jobs.json')
+
+    @staticmethod
+    def get_path_of_checked_jobs_json():
+        return str(Path(PathTools.get_project_data_directory()) / 'checked_jobs.json')
