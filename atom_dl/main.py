@@ -136,21 +136,17 @@ def get_parser():
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument(
-        '--version', action='version', version='atom-dl ' + __version__, help='Print program version and exit'
-    )
-
-    group.add_argument(
         '-plf',
         '--process-latest-feed',
         action='store_true',
-        help=('Downloads the latest feeds and runs the defined feed workers on it'),
+        help=('Downloads the latest feeds and collect all posts that match a job definition'),
     )
 
     group.add_argument(
         '-fjd',
         '--feed-jdownloader',
         action='store_true',
-        help=('Feed all jobs to JDownloader'),
+        help=('Feed all collected jobs to JDownloader'),
     )
 
     parser.add_argument(
@@ -169,6 +165,13 @@ def get_parser():
         default=False,
         action='store_true',
         help='Print various debugging information',
+    )
+
+    group.add_argument(
+        '--version',
+        action='version',
+        version='atom-dl ' + __version__,
+        help='Print program version and exit',
     )
 
     return parser

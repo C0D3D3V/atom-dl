@@ -1,15 +1,26 @@
 import asyncio
+import bisect
+import os
 import traceback
 
+from itertools import cycle
 
 from atom_dl.config_helper import Config
 from atom_dl.my_jd_api import MyJdApi, MYJDException
-from atom_dl.utils import Log, load_list_from_json, PathTools as PT, append_list_to_json
+from atom_dl.utils import (
+    append_list_to_json,
+    load_list_from_json,
+    Log,
+    PathTools as PT,
+    write_to_json,
+)
 
 
 class JobsFeeder:
     def __init__(self):
         self.finished = False
+        self.num_jobs_total = 0
+        self.done_links = []
         self.new_jobs = []
         self.max_parallel_decrypt_jobs = 15
         self.decrypt_jobs = []
@@ -49,10 +60,16 @@ class JobsFeeder:
 
     def process(self):
         Log.debug('Start working on jobs...')
-        json_file_path = PT.get_path_of_jobs_json()
-        self.new_jobs = load_list_from_json(json_file_path)
+        jobs_json_file_path = PT.get_path_of_jobs_json()
+        self.new_jobs = load_list_from_json(jobs_json_file_path)
 
-        if len(self.new_jobs) > 0:
+        done_links_json_file_path = PT.get_path_of_done_links_json()
+        self.done_links = load_list_from_json(done_links_json_file_path)
+        # To make the search for elements faster we sort the list
+        self.done_links.sort()
+
+        self.num_jobs_total = len(self.new_jobs)
+        if self.num_jobs_total > 0:
             asyncio.run(self.jd_job_chain())
 
     async def jd_job_chain(self):
@@ -73,8 +90,52 @@ class JobsFeeder:
             exit(1)
 
         append_list_to_json(PT.get_path_of_checked_jobs_json(), self.checked_jobs)
+        self.save_all_done_links()
+        self.delete_or_backup_done_jobs()
+
+    def save_all_done_links(self):
+        # Extract all decrypted links from checked_jobs
+        all_decrypted_links = []
+        for checked_job in self.checked_jobs:
+            decrypted_links = checked_job.get('decrypted_links', [])
+            for decrypted_link in decrypted_links:
+                url = decrypted_link.get('url', None)
+                availability = decrypted_link.get('availability', 'OFFLINE')
+                is_already_done = decrypted_link.get('is_already_done', False)
+                if url is not None and not is_already_done and availability in ['ONLINE', 'OFFLINE']:
+                    all_decrypted_links.append(url)
+
+        # Items should be unique since we already tested if they are in the list
+        self.done_links.extend(all_decrypted_links)
+        self.done_links.sort()
+        write_to_json(PT.get_path_of_done_links_json(), self.done_links)
+
+    def delete_or_backup_done_jobs(self):
+        # Handle old jobs json
+        num_checked_jobs = len(self.checked_jobs)
+        json_old_jobs_file_path = PT.get_path_of_jobs_json()
+        if not os.path.isfile(json_old_jobs_file_path):
+            Log.warning(f'Warning: Could not find old jobs file {json_old_jobs_file_path}')
+
+        if num_checked_jobs != self.num_jobs_total:
+            # Move jobs file to backup location
+            Log.warning(f'Warning: Only done {num_checked_jobs} out of {self.num_jobs_total} jobs')
+            json_backup_jobs_file_path = PT.get_path_of_backup_jobs_json()
+            if os.path.isfile(json_old_jobs_file_path):
+                try:
+                    os.rename(json_old_jobs_file_path, json_backup_jobs_file_path)
+                except OSError as err:
+                    Log.warning(f'Warning: Could not backup old jobs file {json_old_jobs_file_path} Error: {str(err)}')
+        else:
+            # Remove old jobs file
+            if os.path.isfile(json_old_jobs_file_path):
+                try:
+                    os.remove(json_old_jobs_file_path)
+                except OSError as err:
+                    Log.warning(f'Warning: Could not delete old jobs file {json_old_jobs_file_path} Error: {str(err)}')
 
     async def check_finish_condition(self):
+        spinner = cycle('/|\\-')
         while True:
             if (
                 len(self.new_jobs) == 0
@@ -83,7 +144,12 @@ class JobsFeeder:
                 and len(self.urls_jobs) == 0
             ):
                 self.finished = True
+                Log.info('\n All Jobs Done')
                 return
+            print(
+                f"\r\033[KDone: {len(self.checked_jobs):04} / {self.num_jobs_total:04} Jobs {next(spinner)}",
+                end='',
+            )
             await asyncio.sleep(1)
 
     async def send_jobs_to_jd(self):
@@ -195,6 +261,13 @@ class JobsFeeder:
             else:
                 await asyncio.sleep(1)
 
+    def check_already_done(self, url: str) -> bool:
+        """
+        Return True if the URL is already done
+        """
+        idx = bisect.bisect_left(self.done_links, url)
+        return idx != len(self.done_links) and self.done_links[idx] == url
+
     async def check_urls_jobs(self):
         while not self.finished:
             if len(self.urls_jobs) > 0:
@@ -204,26 +277,34 @@ class JobsFeeder:
                 retry_counter = next_retry_job.get('retry', 0)
 
                 is_online = False
+                is_offline = False
+                is_already_done = False
                 needs_retry = False
                 remove_links_ids = []
                 for decrypted_link in decrypted_links:
                     availability = decrypted_link.get('availability', 'OFFLINE')
+                    url = decrypted_link.get('url', None)
                     decrypted_link_id = decrypted_link.get('uuid', None)
-                    if decrypted_link_id is None:
+                    if url is None or decrypted_link_id is None:
                         continue  # should not happen
-                    if availability == 'ONLINE':
+                    already_done = self.check_already_done(url)
+                    if already_done:
+                        is_already_done = True
+                        remove_links_ids.append(decrypted_link_id)
+                    elif availability == 'ONLINE':
                         is_online = True
                     elif availability in ['TEMP_UNKNOWN', 'UNKNOWN']:
                         needs_retry = True
                         remove_links_ids.append(decrypted_link_id)
                     elif availability == 'OFFLINE':
+                        is_offline = True
                         remove_links_ids.append(decrypted_link_id)
 
                 if len(remove_links_ids) > 0:
                     _ = self.jd_device.linkgrabber.remove_links(remove_links_ids, [])
                     pass
 
-                if retry_counter < 2 and is_online is False and needs_retry is True:
+                if retry_counter < 2 and not is_online and needs_retry:
                     # Put back in queue
                     next_retry_job['retry'] = retry_counter + 1
                     self.new_jobs.append(next_retry_job)
@@ -233,8 +314,12 @@ class JobsFeeder:
                         next_retry_job['status'] = 'ONLINE'
                     elif needs_retry:
                         next_retry_job['status'] = 'UNKNOWN'
-                    else:
+                    elif is_offline:
                         next_retry_job['status'] = 'OFFLINE'
+                    elif is_already_done:
+                        next_retry_job['status'] = 'ALREADY_DONE'
+                    else:
+                        next_retry_job['status'] = 'REAL_UNKNOWN'
                     self.checked_jobs.append(next_retry_job)
 
                 await asyncio.sleep(0)

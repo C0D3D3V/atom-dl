@@ -161,6 +161,21 @@ def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
             o_file.close()
 
 
+def write_to_json(json_file_path: str, item_to_store):
+    """
+    This writes a object to a json file, if the file exists it will be overwritten.
+    """
+    # pylint: disable=maybe-no-member
+    json_bytes = orjson.dumps(item_to_store, option=orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE)
+    try:
+        with open(json_file_path, 'wb') as o_file:
+            o_file.write(json_bytes)
+
+    except (OSError, IOError) as err:
+        Log.error(f'Error: Could not write item to json: {json_file_path} Reason: {str(err)}')
+        exit(-1)
+
+
 RESET_SEQ = '\033[0m'
 COLOR_SEQ = '\033[1;%dm'
 
@@ -452,6 +467,13 @@ class PathTools:
         return str(feeds_dir)
 
     @staticmethod
+    def get_jobs_backup_directory():
+        backup_dir = Path(PathTools.get_project_data_directory()) / "jobs_backup"
+        if not backup_dir.is_dir():
+            backup_dir.mkdir(parents=True, exist_ok=True)
+        return str(backup_dir)
+
+    @staticmethod
     def get_unused_filename(destination: str, filename: str, file_extension: str):
         count = 0
         new_file_path = str(Path(destination) / f'{filename}_{count:04d}{file_extension}')
@@ -486,6 +508,15 @@ class PathTools:
     @staticmethod
     def get_path_of_jobs_json():
         return str(Path(PathTools.get_project_data_directory()) / 'jobs.json')
+
+    @staticmethod
+    def get_path_of_done_links_json():
+        return str(Path(PathTools.get_project_data_directory()) / 'done_links.json')
+
+    @staticmethod
+    def get_path_of_backup_jobs_json():
+        backup_dir = PathTools.get_jobs_backup_directory()
+        return PathTools.get_unused_filename(backup_dir, 'jobs', '.json')
 
     @staticmethod
     def get_path_of_checked_jobs_json():
