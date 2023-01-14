@@ -88,6 +88,12 @@ class Config:
     def get_storage_path(self) -> str:
         return PT.get_abs_path(self.get_property('storage_path'))
 
+    def get_auto_start_downloading(self) -> bool:
+        try:
+            return self.get_property('auto_start_downloading')
+        except ValueError:
+            return False
+
     # ---------------------------- SETTERS ------------------------------------
 
     def set_last_feed_update_dates(self, feed: str, date_Str: str):

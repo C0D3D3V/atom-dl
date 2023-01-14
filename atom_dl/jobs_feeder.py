@@ -28,8 +28,10 @@ class JobsFeeder:
         self.urls_jobs = []
         self.checked_jobs = []
 
-        Log.info("Try to connect to MyJDownloader...")
         config = Config()
+        self.auto_start_downloading = config.get_auto_start_downloading()
+
+        Log.info("Try to connect to MyJDownloader...")
         try:
             my_jd_username = config.get_my_jd_username()
             my_jd_password = config.get_my_jd_password()
@@ -92,6 +94,25 @@ class JobsFeeder:
         append_list_to_json(PT.get_path_of_checked_jobs_json(), self.checked_jobs)
         self.save_all_done_links()
         self.delete_or_backup_done_jobs()
+
+        if self.auto_start_downloading:
+            self.start_downloads()
+
+    def start_downloads(self):
+        link_ids = []
+        for checked_job in self.checked_jobs:
+            decrypted_links = checked_job.get('decrypted_links', [])
+            for decrypted_link in decrypted_links:
+                link_id = decrypted_link.get('uuid', None)
+                availability = decrypted_link.get('availability', 'OFFLINE')
+                is_already_done = decrypted_link.get('is_already_done', False)
+                if link_id is not None and not is_already_done and availability == 'ONLINE':
+                    link_ids.append(link_id)
+
+        self.jd_device.linkgrabber.move_to_downloadlist(link_ids, [])
+
+        start_result = self.jd_device.downloadcontroller.start_downloads()
+        print(start_result)
 
     def save_all_done_links(self):
         # Extract all decrypted links from checked_jobs
@@ -290,6 +311,7 @@ class JobsFeeder:
                     already_done = self.check_already_done(url)
                     if already_done:
                         is_already_done = True
+                        decrypted_link['is_already_done'] = True
                         remove_links_ids.append(decrypted_link_id)
                     elif availability == 'ONLINE':
                         is_online = True
