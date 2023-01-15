@@ -14,9 +14,12 @@ import requests  # noqa: F401 pylint: disable=unused-import
 
 from colorama import just_fix_windows_console
 
+from atom_dl.archive_extractor import ArchiveExtractor
 from atom_dl.config_helper import Config
 from atom_dl.jobs_feeder import JobsFeeder
 from atom_dl.latest_feed_processor import LatestFeedProcessor
+from atom_dl.offline_feed_processor import OfflineFeedProcessor
+
 from atom_dl.utils import (
     check_debug,
     check_verbose,
@@ -143,10 +146,24 @@ def get_parser():
     )
 
     group.add_argument(
+        '-pof',
+        '--process-offline-feed',
+        type=str,
+        help=('Collect all posts that match a job definition in a given job definition file'),
+    )
+
+    group.add_argument(
         '-fjd',
         '--feed-jdownloader',
         action='store_true',
         help=('Feed all collected jobs to JDownloader'),
+    )
+
+    group.add_argument(
+        '-ea',
+        '--extract-archives',
+        action='store_true',
+        help=('Extract all finished archives in the storage path, according to strict rules'),
     )
 
     parser.add_argument(
@@ -188,14 +205,19 @@ def main(args=None):
 
     check_mandatory_settings()
     try:
+        process_lock()
         if args.process_latest_feed:
-            process_lock()
             latest_feed_processor = LatestFeedProcessor(verify_tls_certs)
             latest_feed_processor.process()
+        elif args.process_offline_feed:
+            offline_feed_processor = OfflineFeedProcessor(args.process_offline_feed, verify_tls_certs)
+            offline_feed_processor.process()
         elif args.feed_jdownloader:
-            process_lock()
             jobs_feeder = JobsFeeder()
             jobs_feeder.process()
+        elif args.extract_archives:
+            archive_extractor = ArchiveExtractor()
+            archive_extractor.process()
 
         Log.success('All done. Exiting..')
         process_unlock()

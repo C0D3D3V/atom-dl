@@ -1,9 +1,8 @@
 from datetime import datetime, timezone
 from typing import List, Dict
 
-from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import FeedInfoExtractor
-from atom_dl.utils import Log, PathTools as PT, append_list_to_json
+from atom_dl.utils import Log, PathTools as PT, append_list_to_json, load_dict_from_json, write_to_json
 
 
 class FeedUpdater:
@@ -38,8 +37,8 @@ class FeedUpdater:
         date we would need to download the whole feed all the time. Thats why we only download the updated feed based
         on the published date.
         """
-        config = Config()
-        until_dates = config.get_last_feed_update_dates()
+        path_of_last_feed_update_json = PT.get_path_of_last_feed_update_json()
+        until_dates = load_dict_from_json(path_of_last_feed_update_json)
         feed_name = self.feed_extractor.fie_key()
         Log.debug(f"Downloading {feed_name} latest feed")
         started_time = datetime.now(timezone.utc)
@@ -58,7 +57,8 @@ class FeedUpdater:
         # update json
         self.update_feed_json(feed_name, latest_feed_list)
 
-        config.set_last_feed_update_dates(feed_name, started_time_str)
+        until_dates[feed_name] = started_time_str
+        write_to_json(path_of_last_feed_update_json, until_dates)
 
         Log.success(f'Downloaded {feed_name} latest feed')
         return latest_feed_list

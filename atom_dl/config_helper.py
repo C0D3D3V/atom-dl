@@ -73,18 +73,6 @@ class Config:
     def get_my_jd_device(self) -> str:
         return self.get_property('my_jd_device')
 
-    def get_last_feed_update_dates(self) -> Dict:
-        try:
-            return self.get_property('last_feed_update_dates')
-        except ValueError:
-            return {}
-
-    def get_last_feed_job_definitions(self) -> Dict:
-        try:
-            return self.get_property('last_feed_job_definitions')
-        except ValueError:
-            return []
-
     def get_storage_path(self) -> str:
         return PT.get_abs_path(self.get_property('storage_path'))
 
@@ -93,10 +81,3 @@ class Config:
             return self.get_property('auto_start_downloading')
         except ValueError:
             return False
-
-    # ---------------------------- SETTERS ------------------------------------
-
-    def set_last_feed_update_dates(self, feed: str, date_Str: str):
-        last_feed_update_dates = self.get_last_feed_update_dates()
-        last_feed_update_dates[feed] = date_Str
-        self.set_property('last_feed_update_dates', last_feed_update_dates)

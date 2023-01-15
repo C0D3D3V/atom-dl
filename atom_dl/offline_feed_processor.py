@@ -5,11 +5,13 @@ from atom_dl.job_creator import JobCreator
 from atom_dl.utils import PathTools as PT, Log, append_list_to_json, load_list_from_json
 
 
-class LatestFeedProcessor:
+class OfflineFeedProcessor:
     def __init__(
         self,
+        path_to_job_defs: str,
         verify_tls_certs: bool,
     ):
+        self.path_to_job_defs = PT.get_abs_path(path_to_job_defs)
         self.verify_tls_certs = verify_tls_certs
 
     def process(self):
@@ -18,25 +20,20 @@ class LatestFeedProcessor:
         config = Config()
         storage_path = config.get_storage_path()
 
-        path_of_last_feed_job_defs_json = PT.get_path_of_last_feed_job_defs_json()
-        last_feed_job_definitions = load_list_from_json(path_of_last_feed_job_defs_json)
+        last_feed_job_definitions = load_list_from_json(self.path_to_job_defs)
 
         job_creators = []
         for job_definition in last_feed_job_definitions:
             job_creators.append(JobCreator(job_definition, storage_path))
 
         if len(job_creators) == 0:
-            Log.warning('No Jobs for last feed are defined')
+            Log.warning('No Jobs for offline feed are defined')
             return
 
         Log.debug('Start collecting jobs...')
         jobs = []
         for extractor in all_feed_info_extractors:
-            feed_updater = FeedUpdater(extractor)
-            latest_feed = feed_updater.update()
-
             # Filter job creators based on feed name
-            # We filter after the update, so that all feeds get an update
             feed_name = extractor.fie_key()
             valid_job_creators = []
             for job_creator in job_creators:
@@ -45,7 +42,10 @@ class LatestFeedProcessor:
             if len(valid_job_creators) == 0:
                 continue
 
-            for post in latest_feed:
+            path_of_feed_json = PT.get_path_of_feed_json(feed_name)
+            offline_feed = load_list_from_json(path_of_feed_json)
+
+            for post in offline_feed:
                 for job_creator in valid_job_creators:
                     job = job_creator.process(post, extractor)
                     if job is not None:

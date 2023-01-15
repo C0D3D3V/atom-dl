@@ -255,11 +255,11 @@ class IbooksFIE(FeedInfoExtractor):
         """
         post_top_category = self.get_top_category(post)
         post_title = post.get('title', '')
-        if post_top_category == 'Magazine':
+        if post_top_category == TopCategory.magazines:
             return post_title.rsplit(' – aktuelle Ausgabe', 1)[0].strip()
-        elif post_top_category == 'Zeitungen':
+        elif post_top_category == TopCategory.newspapers:
             return post_title.rsplit(' vom ')[0].strip()
-        elif post_top_category in ['Comics', 'Manga']:
+        elif post_top_category in [TopCategory.comics, TopCategory.manga]:
             return self.brackets_pattern.sub('', post_title).strip()
         else:
             return post_title.strip()

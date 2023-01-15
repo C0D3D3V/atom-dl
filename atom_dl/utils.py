@@ -121,6 +121,18 @@ def load_list_from_json(json_file_path: str) -> List[Dict]:
         return []
 
 
+def load_dict_from_json(json_file_path: str) -> Dict:
+    """
+    Return the dict stored in a json file or an empty dict
+    """
+    if os.path.exists(json_file_path):
+        with open(json_file_path, 'rb') as config_file:
+            raw_json = config_file.read()
+            return orjson.loads(raw_json)  # pylint: disable=maybe-no-member
+    else:
+        return {}
+
+
 def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
     """
     This appends a list of dictionaries to the end of a json file.
@@ -488,6 +500,10 @@ class PathTools:
         return str(Path(PathTools.get_project_config_directory()) / 'config.json')
 
     @staticmethod
+    def get_path_of_last_feed_job_defs_json():
+        return str(Path(PathTools.get_project_config_directory()) / 'last_feed_job_defs.json')
+
+    @staticmethod
     def get_path_of_log_file():
         return str(Path(PathTools.get_project_data_directory()) / 'AtomDownloader.log')
 
@@ -512,6 +528,10 @@ class PathTools:
     @staticmethod
     def get_path_of_done_links_json():
         return str(Path(PathTools.get_project_data_directory()) / 'done_links.json')
+
+    @staticmethod
+    def get_path_of_last_feed_update_json():
+        return str(Path(PathTools.get_project_data_directory()) / 'last_feed_update.json')
 
     @staticmethod
     def get_path_of_backup_jobs_json():
