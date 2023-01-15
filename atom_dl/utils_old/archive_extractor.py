@@ -8,13 +8,14 @@ from pathlib import Path
 import zipfile
 import rarfile
 
-from atom_dl.utils import PathTools
+from books_dl.download_service.path_tools import PathTools
 
 
 class ArchiveExtractor:
 
     part_patern = re.compile(r'^part(\d+)$')
     without_part_patern = re.compile(r'^(.+\.part)\d+(\.\w+)$')
+    compressed_part_patern = re.compile(r'^(.+)(\d+)$')
 
     def __init__(self, storage_path: str, categories: [str]):
         self.storage_path = storage_path
@@ -40,9 +41,18 @@ class ArchiveExtractor:
             files_to_delete = []
             for filename in book_file_list:
                 file_path = str(Path(category_path) / book_title / filename)
+                if not os.path.isfile(file_path):
+                    continue
                 filename_split = filename.split('.')
-                ext = filename_split[-1].lower()
-                ext2 = filename_split[-2].lower()
+                ext = ''
+                if len(filename_split) > 1:
+                    ext = filename_split[-1].lower()
+                else:
+                    print(f'Skipping unkown file: {file_path}')
+                    continue
+                ext2 = ''
+                if len(filename_split) > 2:
+                    ext2 = filename_split[-2].lower()
 
                 if ext not in ['zip', 'rar']:
                     continue
@@ -67,17 +77,26 @@ class ArchiveExtractor:
                         container = zipfile.ZipFile(file_path)
                     elif ext == 'rar':
                         container = rarfile.RarFile(file_path)
-
+                    container.setpassword(b'ibooks.to')
                     if container is None:
                         print(f'Could not open: {file_path}')
                         continue
 
                     compressed_paths = {}
+                    compressed_paths_parents = []
                     for compressed_file_info in container.infolist():
                         if compressed_file_info.is_dir():
                             continue
                         compressed_file_path = Path(compressed_file_info.filename)
-                        if compressed_file_path.suffix in ['.txt', '.png', '.jpg', '.jpeg', '.gif']:
+                        if compressed_file_path.suffix.lower() in [
+                            '.txt',
+                            '.png',
+                            '.jpg',
+                            '.jpeg',
+                            '.gif',
+                            '.opf',
+                            '.xlsx',
+                        ]:
                             continue
 
                         compressed_path = str(compressed_file_path.parent)
@@ -85,57 +104,142 @@ class ArchiveExtractor:
                             compressed_paths[compressed_path] += 1
                         else:
                             compressed_paths[compressed_path] = 1
-
-                    if len(compressed_paths) != 1:
-                        print(f'Skipping {file_path}, because of missing extraction implementation.')
-                        print(compressed_paths)
+                            compressed_path_parents = []
+                            for parent in compressed_file_path.parents:
+                                if parent.name != '':
+                                    compressed_path_parents.append(parent.name)
+                            compressed_paths_parents.append(compressed_path_parents[::-1])
+                    if len(compressed_paths) == 0:
+                        print(f'ERROR!  {file_path} contains no compressed files')
                         continue
 
-                    extracted_counter = 0
+                    create_folders = False
+                    base_string = r'^'
+                    if len(compressed_paths) != 1:
+                        # Get base dir of all the directors inside the archive
+                        base_idx = 0
+                        found_base = False
+                        base_string_next_part_pattern = ''
+                        while not found_base:
+                            for idx_path, compressed_path_parents in enumerate(compressed_paths_parents):
+                                if len(compressed_path_parents) < base_idx + 1:
+                                    found_base = True
+                                    break
+
+                                if idx_path == 0:
+                                    next_path_part = compressed_path_parents[base_idx]
+                                    compressed_part_matches = self.compressed_part_patern.findall(next_path_part)
+                                    if len(compressed_part_matches) == 1:
+                                        base_string_next_part_pattern = fr'{compressed_part_matches[0][0]}\d+'
+                                    elif len(compressed_part_matches) == 0:
+                                        base_string_next_part_pattern = fr'{next_path_part}'
+
+                                if (
+                                    re.fullmatch(base_string_next_part_pattern, compressed_path_parents[base_idx])
+                                    is None
+                                ):
+                                    found_base = True
+                                    break
+                                if idx_path == len(compressed_paths_parents) - 1:
+                                    base_string += base_string_next_part_pattern + r'/'
+                            if not found_base:
+                                base_idx += 1
+
+                        create_folders = True
+                        if base_string != '^':
+                            base_string += r'?'
+                        print(f'INFO: Detected multiple folders inside `{base_string}` in `{file_path}`')
+
+                    # Create List of files to extract
+                    list_of_files_to_extract = {}
                     for compressed_file_info in container.infolist():
                         if compressed_file_info.is_dir():
                             continue
                         compressed_file_path = Path(compressed_file_info.filename)
-                        if compressed_file_path.suffix in ['.txt', '.png', '.jpg', '.jpeg', '.gif']:
+                        suffix = compressed_file_path.suffix
+                        if suffix.lower() in ['.txt', '.png', '.jpg', '.jpeg', '.gif', '.opf', '.xlsx']:
                             continue
 
-                        check_for_duplication, target_path = self.get_path_of_non_existent_file(
-                            str(Path(category_path) / book_title / compressed_file_path.name)
-                        )
+                        stem = str(compressed_file_path).rpartition(".")[0]
+                        if stem not in list_of_files_to_extract:
+                            list_of_files_to_extract[stem] = []
+                        if suffix.lower() in ['.pdf', '.epub']:
+                            list_of_files_to_extract[stem].append(suffix)
 
-                        # precheck if it does already exist
-                        if check_for_duplication:
-                            CHUNCK_SIZE = 8192
-                            md = hashlib.sha1()
-                            with container.open(compressed_file_info.filename) as precheck_source:
-                                chunk = precheck_source.read(CHUNCK_SIZE)
-                                md.update(chunk)
-                            header_hash = md.hexdigest()
-                            file_size = compressed_file_info.file_size
-                            is_duplicate = False
-                            if header_hash in self.hash_file_map:
-                                for hashed_file_path in self.hash_file_map[header_hash]:
-                                    if self.file_size_map[hashed_file_path] == file_size:
-                                        print(f'Already exitsts: `{compressed_file_path.name}`')
-                                        is_duplicate = True
-                                        break
-                            if is_duplicate:
-                                continue
+                    for path_to_extract, extensions_to_extract in list_of_files_to_extract.items():
+                        # Check if there is a file inside the archive that missis a epub or pdf partner file
+                        if len(extensions_to_extract) == 0:
+                            print(f'WARNING: Missing epub or pdf for `{path_to_extract}` in `{file_path}`')
+                            for compressed_file_info in container.infolist():
+                                if compressed_file_info.is_dir():
+                                    continue
+                                compressed_file_path = Path(compressed_file_info.filename)
+                                suffix = compressed_file_path.suffix
+                                if suffix.lower() in ['.txt', '.png', '.jpg', '.jpeg', '.gif', '.opf', '.xlsx']:
+                                    continue
 
-                        source = container.open(compressed_file_info.filename)
-                        target = open(target_path, "wb")
+                                stem = str(compressed_file_path).rpartition(".")[0]
+                                if stem == path_to_extract:
+                                    print(f'Extracting instead `{suffix}` for `{stem}`')
+                                    list_of_files_to_extract[stem].append(suffix)
 
-                        with source, target:
-                            shutil.copyfileobj(source, target)
-                        extracted_counter += 1
+                    # Extract files and create directory if needed
+                    extracted_counter = 0
+                    for file_to_extract, extensions_to_extract in list_of_files_to_extract.items():
+                        for extension_to_extract in extensions_to_extract:
+                            compressed_file_filename = file_to_extract + extension_to_extract
+                            compressed_file_path = Path(compressed_file_filename)
 
-                        if check_for_duplication:
-                            if not self.gen_hash_of_file(target_path):
-                                print(f'Info: Deleting `{target_path}`')
-                                try:
-                                    os.remove(target_path)
-                                except OSError as error_inner:
-                                    print(f'Failed to remove {target_path} - Error: {error_inner}')
+                            storage_folder = str(Path(category_path) / book_title)
+                            if create_folders:
+                                # Create subfolder and target file inside it
+                                compressed_file_path_without_base = re.sub(
+                                    base_string, '', str(compressed_file_path.parent), count=1
+                                )
+                                storage_folder = str(
+                                    Path(category_path) / book_title / str(compressed_file_path_without_base)
+                                )
+
+                                if not os.path.isdir(storage_folder):
+                                    os.makedirs(storage_folder, exist_ok=True)
+
+                            check_for_duplication, target_path = self.get_path_of_non_existent_file(
+                                str(Path(storage_folder) / compressed_file_path.name)
+                            )
+
+                            # precheck if it does already exist
+                            if check_for_duplication:
+                                CHUNCK_SIZE = 8192
+                                md = hashlib.sha1()
+                                with container.open(compressed_file_info.filename) as precheck_source:
+                                    chunk = precheck_source.read(CHUNCK_SIZE)
+                                    md.update(chunk)
+                                header_hash = md.hexdigest()
+                                file_size = compressed_file_info.file_size
+                                is_duplicate = False
+                                if header_hash in self.hash_file_map:
+                                    for hashed_file_path in self.hash_file_map[header_hash]:
+                                        if self.file_size_map[hashed_file_path] == file_size:
+                                            print(f'Already exitsts: `{compressed_file_path.name}`')
+                                            is_duplicate = True
+                                            break
+                                if is_duplicate:
+                                    continue
+
+                            source = container.open(compressed_file_filename)
+                            target = open(target_path, "wb")
+
+                            with source, target:
+                                shutil.copyfileobj(source, target)
+                            extracted_counter += 1
+
+                            if check_for_duplication:
+                                if not self.gen_hash_of_file(target_path):
+                                    print(f'Info: Deleting `{target_path}`')
+                                    try:
+                                        os.remove(target_path)
+                                    except OSError as error_inner:
+                                        print(f'Failed to remove {target_path} - Error: {error_inner}')
 
                     print(f'INFO: Extracted {extracted_counter} file(s)')
 

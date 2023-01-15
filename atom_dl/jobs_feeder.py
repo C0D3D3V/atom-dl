@@ -112,7 +112,10 @@ class JobsFeeder:
         self.jd_device.linkgrabber.move_to_downloadlist(link_ids, [])
 
         start_result = self.jd_device.downloadcontroller.start_downloads()
-        print(start_result)
+        if not start_result:
+            Log.warning('JDownloader did not start automatically!')
+        else:
+            Log.success('JDownloader is starting downloading...')
 
     def save_all_done_links(self):
         # Extract all decrypted links from checked_jobs
@@ -129,7 +132,9 @@ class JobsFeeder:
         # Items should be unique since we already tested if they are in the list
         self.done_links.extend(all_decrypted_links)
         self.done_links.sort()
-        write_to_json(PT.get_path_of_done_links_json(), self.done_links)
+        path_of_done_links_json = PT.get_path_of_done_links_json()
+        write_to_json(path_of_done_links_json, self.done_links)
+        Log.info(f'Checked jobs appended to: {path_of_done_links_json}')
 
     def delete_or_backup_done_jobs(self):
         # Handle old jobs json
