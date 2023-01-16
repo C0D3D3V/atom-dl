@@ -650,7 +650,7 @@ class Linkgrabber:
             LOWER
             LOWEST
         """
-        resp = self.device.action(self.url + "/queryPackages", queryParams)
+        resp = self.device.action(self.url + "/queryPackages", [queryParams])
         return resp
 
     def remove_links(self, link_ids, package_ids):
@@ -987,7 +987,7 @@ class Downloads:
             LOWER
             LOWEST
         """
-        resp = self.device.action(self.url + "/queryLinks", queryParams)
+        resp = self.device.action(self.url + "/queryLinks", [queryParams])
         return resp
 
     def query_packages(
@@ -1050,7 +1050,7 @@ class Downloads:
             LOWER
             LOWEST
         """
-        resp = self.device.action(self.url + "/queryPackages", queryParams)
+        resp = self.device.action(self.url + "/queryPackages", [queryParams])
         return resp
 
     def remove_links(self, link_ids, package_ids):
