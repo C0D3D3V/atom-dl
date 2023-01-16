@@ -499,17 +499,25 @@ class PathTools:
     def get_file_exts(filename: str) -> (str, str):
         file_splits = filename.rsplit('.', 2)
         if len(file_splits) == 2:
-            return None, file_splits[-1]
+            return None, file_splits[-1].lower()
         elif len(file_splits) == 3:
-            return file_splits[-2], file_splits[-1]
+            return file_splits[-2].lower(), file_splits[-1].lower()
         return None, None
 
     @staticmethod
     def get_file_ext(filename: str) -> str:
         file_splits = filename.rsplit('.', 1)
         if len(file_splits) == 2:
-            return file_splits[-1]
+            return file_splits[-1].lower()
         return None
+
+    @staticmethod
+    def get_file_stem_and_ext(filename: str) -> (str, str):
+        file_splits = filename.rsplit('.', 1)
+        if len(file_splits) == 2:
+            return file_splits[0], file_splits[1]
+        else:
+            return file_splits[0], None
 
     @staticmethod
     def get_path_of_config_json():
