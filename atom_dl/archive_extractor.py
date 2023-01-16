@@ -1,14 +1,14 @@
 import os
 import re
-import zipfile
+import shutil
+import traceback
 
+from itertools import cycle
 from pathlib import Path
 from typing import List, Union
-from zipfile import ZipInfo
+from zipfile import ZipInfo, ZipFile
 
-import rarfile
-
-from rarfile import RarInfo
+from rarfile import RarInfo, RarFile, Error as RarError
 
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import TopCategory
@@ -23,6 +23,11 @@ class ArchiveExtractor:
     def __init__(self):
         config = Config()
         self.storage_path = config.get_storage_path()
+        self.blocked_file_types = ['txt', 'png', 'jpg', 'jpeg', 'gif', 'opf', 'xlsx', 'inf']
+        self.extract_passwords = [b'ibooks.to', b'comicmafia.to', b'languagelearning.site']
+        self.spinner = cycle('/|\\-')
+
+        Log.info('Run rmlint before and after running archive extractor!')
 
     def process(self):
         # Currently not all top categories are supported
@@ -31,7 +36,6 @@ class ArchiveExtractor:
             TopCategory.textbooks: ['epub', 'pdf'],
             TopCategory.magazines: ['pdf'],
         }
-        self.blocked_file_types = ['txt', 'png', 'jpg', 'jpeg', 'gif', 'opf', 'xlsx', 'inf']
 
         for category, extract_file_types in extract_file_types_per_category.items():
             self.extract_all_archives(category, extract_file_types)
@@ -97,9 +101,9 @@ class ArchiveExtractor:
                     parted_dir_name_match = self.dir_name_part_pattern.fullmatch(next_path_part)
                     if parted_dir_name_match is not None:
                         parted_dir_name_groups = parted_dir_name_match.groups()
-                        base_path_next_part_pattern = fr'{parted_dir_name_groups[0]}\d+'
+                        base_path_next_part_pattern = re.escape(parted_dir_name_groups[0]) + r'\d+'
                     else:
-                        base_path_next_part_pattern = fr'{next_path_part}'
+                        base_path_next_part_pattern = re.escape(next_path_part)
 
                 if re.fullmatch(base_path_next_part_pattern, dir_path_parts[base_idx]) is None:
                     # If the part does not match the pattern, the base dir is found
@@ -118,7 +122,6 @@ class ArchiveExtractor:
 
     def get_files_to_extract(
         self,
-        arc_path: str,
         container_infolist: List[Union[ZipInfo, RarInfo]],
         extract_file_types: List[str],
     ) -> List[str]:
@@ -142,7 +145,7 @@ class ArchiveExtractor:
             # Check if there is a file inside the archive that missis a wanted file type
             if len(exts_to_extract) > 0:
                 continue
-            Log.warning(f'WARNING: Missing wanted file type for `{stem_to_extract}` in `{arc_path}`')
+            Log.warning(f'WARNING: Missing wanted file type for `{stem_to_extract}`')
             for file_info in container_infolist:
                 if file_info.is_dir():
                     continue
@@ -159,6 +162,52 @@ class ArchiveExtractor:
             for stem_to_extract, exts_to_extract in file_stems_to_extract.items()
             for ext in exts_to_extract
         ]
+
+    def can_open_first_file(self, container: Union[ZipFile, RarFile]) -> bool:
+        container_infolist = container.infolist()
+        if len(container_infolist) == 0:
+            return False
+        file_to_open = None
+        for file_info in container_infolist:
+            if file_info.is_dir():
+                continue
+            file_to_open = file_info.filename
+            break
+        if file_to_open is None:
+            return False
+        try:
+            with container.open(file_to_open):
+                pass
+        except Exception as open_err:
+            Log.info(f'{type(open_err)}: {str(open_err)}')
+
+    def set_password_if_needed(self, container: Union[ZipFile, RarFile]):
+        if self.can_open_first_file(container):
+            return
+
+        for password in self.extract_passwords:
+            try:
+                container.setpassword(password)
+            except RarError:
+                # Error on wrong password
+                continue
+            if self.can_open_first_file(container):
+                return
+
+    def get_target_path(self, package_path: str, file_to_extract: str, base_path_pattern: str) -> str:
+        save_to_path = package_path
+        file_to_extract_path = Path(file_to_extract)
+        file_to_extract_name, file_to_extract_ext = PT.get_file_stem_and_ext(file_to_extract_path.name)
+        file_to_extract_dir = file_to_extract_path.parent
+        if file_to_extract_dir.name != '':
+            # Create subfolder and target file inside it
+            file_path_without_base_pattern = re.sub(base_path_pattern, '', str(file_to_extract_dir), count=1)
+            if file_path_without_base_pattern != '':
+                save_to_path = PT.make_path(save_to_path, file_path_without_base_pattern)
+
+        PT.make_dirs(save_to_path)
+        target_path = PT.get_unused_filename(save_to_path, file_to_extract_name, file_to_extract_ext, True)
+        return target_path
 
     def extract_all_archives(
         self,
@@ -192,57 +241,43 @@ class ArchiveExtractor:
                 if part_num > 1:
                     continue
 
+                Log.info(f'Start extracting `{package_file_path}`')
                 # Start extraction
                 try:
                     container = None
                     if ext == 'zip':
-                        container = zipfile.ZipFile(package_file_path)
+                        container = ZipFile(package_file_path)
                     elif ext == 'rar':
-                        container = rarfile.RarFile(package_file_path)
+                        container = RarFile(package_file_path)
                     if container is None:
                         Log.warning(f'Could not open: {package_file_path}')
                         continue
 
-                    # container.setpassword(b'ibooks.to')
+                    self.set_password_if_needed(container)
                     container_infolist = container.infolist()
 
                     base_path_pattern = self.get_base_path_pattern(container_infolist)
-                    files_to_extract = self.get_files_to_extract(
-                        package_file_path,
-                        container_infolist,
-                        extract_file_types,
-                    )
+                    files_to_extract = self.get_files_to_extract(container_infolist, extract_file_types)
 
-                    for file_to_extract in files_to_extract:
-                        storage_folder = str(Path(category_path) / book_title)
+                    if len(files_to_extract) == 0:
+                        Log.warning(f'No files found in `{package_file_path}`, maybe wrong password!')
+                        continue
 
-                        # Create subfolder and target file inside it
-                        compressed_file_path_without_base = re.sub(
-                            base_string, '', str(compressed_file_path.parent), count=1
-                        )
-                        storage_folder = str(Path(category_path) / book_title / str(compressed_file_path_without_base))
+                    num_files_to_extract = len(files_to_extract)
+                    for idx_file, file_to_extract in enumerate(files_to_extract):
+                        target_path = self.get_target_path(package_path, file_to_extract, base_path_pattern)
 
-                        if not os.path.isdir(storage_folder):
-                            os.makedirs(storage_folder, exist_ok=True)
-
-                        check_for_duplication, target_path = self.get_path_of_non_existent_file(
-                            str(Path(storage_folder) / compressed_file_path.name)
-                        )
-
-                        source = container.open(compressed_file_filename)
+                        source = container.open(file_to_extract)
                         target = open(target_path, "wb")
 
                         with source, target:
                             shutil.copyfileobj(source, target)
-                        extracted_counter += 1
 
-                        if check_for_duplication:
-                            if not self.gen_hash_of_file(target_path):
-                                print(f'Info: Deleting `{target_path}`')
-                                try:
-                                    os.remove(target_path)
-                                except OSError as error_inner:
-                                    print(f'Failed to remove {target_path} - Error: {error_inner}')
+                        print(
+                            f"\r\033[KDone: {idx_file + 1:04} / {num_files_to_extract:04} Files {next(self.spinner)}",
+                            end='',
+                        )
+                    print()
 
                     if part_num == 0:
                         # For single part archives we just want to delete this file
@@ -252,8 +287,9 @@ class ArchiveExtractor:
                         multipart_arc_filenames = self.get_all_multipart_arc_filenames(package_file, package_files)
                         extracted_files_in_package.extend(multipart_arc_filenames)
                 except Exception as extract_err:
-                    print(f"Error on: {package_file_path}")
-                    print(extract_err)
+                    Log.error(f"Error on: {package_file_path}")
+                    Log.error(f'{type(extract_err)}: {str(extract_err)}')
+                    traceback.print_exc()
 
             # Remove all extracted archives
             for file_to_delete in extracted_files_in_package:

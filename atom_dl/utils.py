@@ -486,12 +486,15 @@ class PathTools:
         return str(backup_dir)
 
     @staticmethod
-    def get_unused_filename(destination: str, filename: str, file_extension: str):
+    def get_unused_filename(destination: str, filename: str, file_extension: str, start_clear=False):
         count = 0
-        new_file_path = str(Path(destination) / f'{filename}_{count:04d}{file_extension}')
+        if start_clear:
+            new_file_path = str(Path(destination) / f'{filename}.{file_extension}')
+        else:
+            new_file_path = str(Path(destination) / f'{filename}_{count:04d}.{file_extension}')
         while os.path.exists(new_file_path):
             count += 1
-            new_file_path = str(Path(destination) / f'{filename}_{count:04d}{file_extension}')
+            new_file_path = str(Path(destination) / f'{filename}_{count:04d}.{file_extension}')
 
         return new_file_path
 
@@ -538,7 +541,7 @@ class PathTools:
     @staticmethod
     def get_path_of_new_feed_json(downloader_name: str):
         feeds_dir = PathTools.get_feeds_directory()
-        return PathTools.get_unused_filename(feeds_dir, downloader_name, '.json')
+        return PathTools.get_unused_filename(feeds_dir, downloader_name, 'json')
 
     @staticmethod
     def get_path_of_feed_json(downloader_name: str):
@@ -560,7 +563,7 @@ class PathTools:
     @staticmethod
     def get_path_of_backup_jobs_json():
         backup_dir = PathTools.get_jobs_backup_directory()
-        return PathTools.get_unused_filename(backup_dir, 'jobs', '.json')
+        return PathTools.get_unused_filename(backup_dir, 'jobs', 'json')
 
     @staticmethod
     def get_path_of_checked_jobs_json():
