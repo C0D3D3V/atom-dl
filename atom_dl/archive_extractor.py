@@ -274,7 +274,7 @@ class ArchiveExtractor:
                             shutil.copyfileobj(source, target)
 
                         print(
-                            f"\r\033[KDone: {idx_file + 1:04} / {num_files_to_extract:04} Files {next(self.spinner)}",
+                            f"\r\033[KDone: {idx_file + 1:04} / {num_files_to_extract:04} files {next(self.spinner)}",
                             end='',
                         )
                     print()
