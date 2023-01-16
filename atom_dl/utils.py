@@ -496,6 +496,22 @@ class PathTools:
         return new_file_path
 
     @staticmethod
+    def get_file_exts(filename: str) -> (str, str):
+        file_splits = filename.rsplit('.', 2)
+        if len(file_splits) == 2:
+            return None, file_splits[-1]
+        elif len(file_splits) == 3:
+            return file_splits[-2], file_splits[-1]
+        return None, None
+
+    @staticmethod
+    def get_file_ext(filename: str) -> str:
+        file_splits = filename.rsplit('.', 1)
+        if len(file_splits) == 2:
+            return file_splits[-1]
+        return None
+
+    @staticmethod
     def get_path_of_config_json():
         return str(Path(PathTools.get_project_config_directory()) / 'config.json')
 
