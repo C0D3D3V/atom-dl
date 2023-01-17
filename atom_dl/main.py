@@ -139,6 +139,14 @@ def get_parser():
     )
 
     parser.add_argument(
+        '-nas',
+        '--do-not-auto-start-downloading',
+        default=False,
+        action='store_true',
+        help='If this flag is set, the auto_start_downloading setting will be overwritten with False.',
+    )
+
+    parser.add_argument(
         '-scv',
         '--skip-cert-verify',
         default=False,
@@ -185,7 +193,7 @@ def main(args=None):
             offline_feed_processor = OfflineFeedProcessor(args.process_offline_feed, verify_tls_certs)
             offline_feed_processor.process()
         elif args.feed_jdownloader:
-            jobs_feeder = JobsFeeder()
+            jobs_feeder = JobsFeeder(args.do_not_auto_start_downloading)
             jobs_feeder.process()
         elif args.extract_archives:
             archive_extractor = ArchiveExtractor()

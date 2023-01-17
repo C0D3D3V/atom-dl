@@ -10,7 +10,8 @@
             "cwd": "${workspaceFolder}/debugging-atom-dl/",
             "args": [
                 "-v",
-                "-ea",
+                "-fjd",
+                "-nas",
             ],
             "justMyCode": false
         }

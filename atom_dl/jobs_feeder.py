@@ -17,7 +17,9 @@ from atom_dl.utils import (
 
 
 class JobsFeeder:
-    def __init__(self):
+    def __init__(self, do_not_auto_start_downloading: bool):
+        self.do_not_auto_start_downloading = do_not_auto_start_downloading
+
         self.finished = False
         self.num_jobs_total = 0
         self.done_links = []
@@ -26,6 +28,7 @@ class JobsFeeder:
         self.decrypt_jobs = []
         self.decrypted_jobs = []
         self.urls_jobs = []
+        self.filenames_jobs = []
         self.checked_jobs = []
 
         config = Config()
@@ -81,6 +84,7 @@ class JobsFeeder:
                 self.check_decrypt_jobs(),
                 self.check_decrypted_jobs(),
                 self.check_urls_jobs(),
+                self.check_filenames_jobs(),
                 self.check_finish_condition(),
             ]
         )
@@ -95,8 +99,10 @@ class JobsFeeder:
         self.save_all_done_links()
         self.delete_or_backup_done_jobs()
 
-        if self.auto_start_downloading:
+        if self.auto_start_downloading and not self.do_not_auto_start_downloading:
             self.start_downloads()
+        else:
+            Log.info("Skipping auto downloading")
 
     def start_downloads(self):
         link_ids = []
@@ -168,6 +174,7 @@ class JobsFeeder:
                 and len(self.decrypt_jobs) == 0
                 and len(self.decrypted_jobs) == 0
                 and len(self.urls_jobs) == 0
+                and len(self.filenames_jobs) == 0
             ):
                 self.finished = True
                 Log.info('\n All Jobs Done')
@@ -302,6 +309,7 @@ class JobsFeeder:
                 decrypted_links = next_retry_job.get('decrypted_links', [])
                 retry_counter = next_retry_job.get('retry', 0)
 
+                # Check online status of URLs nd Package
                 is_online = False
                 is_offline = False
                 is_already_done = False
@@ -328,15 +336,17 @@ class JobsFeeder:
                         remove_links_ids.append(decrypted_link_id)
 
                 if len(remove_links_ids) > 0:
-                    _ = self.jd_device.linkgrabber.remove_links(remove_links_ids, [])
-                    pass
+                    # Remove all links that are not online from the JD2 link list
+                    self.jd_device.linkgrabber.remove_links(remove_links_ids, [])
 
                 if retry_counter < 2 and not is_online and needs_retry:
                     # Put back in queue
                     next_retry_job['retry'] = retry_counter + 1
                     self.new_jobs.append(next_retry_job)
                 else:
-                    # Finish job
+                    # Finish job - Set Package status
+                    # Online is the only state in that the package is still in JD2 link list
+                    # In all other states the package is removed from the JD2 link list
                     if is_online:
                         next_retry_job['status'] = 'ONLINE'
                     elif needs_retry:
@@ -347,7 +357,35 @@ class JobsFeeder:
                         next_retry_job['status'] = 'ALREADY_DONE'
                     else:
                         next_retry_job['status'] = 'REAL_UNKNOWN'
-                    self.checked_jobs.append(next_retry_job)
+                    self.filenames_jobs.append(next_retry_job)
+
+                await asyncio.sleep(0)
+            else:
+                await asyncio.sleep(1)
+
+    async def check_filenames_jobs(self):
+        while not self.finished:
+            if len(self.filenames_jobs) > 0:
+                next_filenames_job = self.filenames_jobs.pop(0)
+
+                decrypted_links = next_filenames_job.get('decrypted_links', [])
+
+                for decrypted_link in decrypted_links:
+                    availability = decrypted_link.get('availability', 'OFFLINE')
+                    is_already_done = decrypted_link.get('is_already_done', False)
+                    decrypted_link_id = decrypted_link.get('uuid', None)
+                    name = decrypted_link.get('name', None)
+                    if name is None or decrypted_link_id is None:
+                        continue  # should not happen
+
+                    if not is_already_done and availability == 'ONLINE':
+                        new_name = name.replace('_', ' ')
+                        if new_name != name:
+                            # Rename all links that are online to match our convention
+                            self.jd_device.linkgrabber.rename_link(decrypted_link_id, new_name)
+                            await asyncio.sleep(0)
+
+                self.checked_jobs.append(next_filenames_job)
 
                 await asyncio.sleep(0)
             else:
