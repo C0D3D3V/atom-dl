@@ -103,39 +103,11 @@ def setup_logger():
         app_log.addHandler(ReRaiseOnError())
 
 
-def _dir_path(path):
-    if os.path.isdir(path):
-        return path
-    else:
-        raise argparse.ArgumentTypeError(f'"{str(path)}" is not a valid path. Make sure the directory exists.')
-
-
-def _file_path(path):
-    if os.path.isfile(path):
-        return path
-    else:
-        raise argparse.ArgumentTypeError(f'"{str(path)}" is not a valid path. Make sure the file exists.')
-
-
-def _max_path_length_workaround(path):
-    # Working around MAX_PATH limitation on Windows (see
-    # http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx)
-    if os.name == 'nt':
-        absfilepath = os.path.abspath(path)
-        path = '\\\\?\\' + absfilepath
-        Log.debug("Using absolute paths")
-    else:
-        Log.info("You are not on Windows, you don't need to use this workaround")
-    return path
-
-
 def get_parser():
     """
     Creates a new argument parser.
     """
-    parser = argparse.ArgumentParser(
-        description=('Atom Downloader - A collection of tools to download comics from comicmafia.to')
-    )
+    parser = argparse.ArgumentParser(description=('Atom Downloader - A tiny universal atom downloader'))
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument(

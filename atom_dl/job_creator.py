@@ -14,6 +14,7 @@ class JobCreator:
         if len(job_description) == 0:
             Log.warning('Empty job description found! All Posts are jobs!')
         self.in_title = job_description.get('in_title', None)
+        self.in_title_on_of = job_description.get('in_title_on_of', None)
         self.in_feeds = self.as_list_or_none(job_description.get('in_feeds', None))
         self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
         self.not_in_categories = self.as_list_or_none(job_description.get('not_in_categories', None))
@@ -54,6 +55,16 @@ class JobCreator:
         if self.in_title is not None:
             # Check if title matches job definition
             if post.get('title', '').find(self.in_title) < 0:
+                return None
+
+        if self.in_title_on_of is not None:
+            # Check if title matches any title in job definition
+            matches_job_definition = False
+            for in_title in self.in_title_on_of:
+                if post.get('title', '').find(in_title) >= 0:
+                    matches_job_definition = True
+                    break
+            if not matches_job_definition:
                 return None
 
         if self.in_categories is not None:
