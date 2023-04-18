@@ -58,6 +58,15 @@ def process_unlock():
 _timetuple = collections.namedtuple('Time', ('hours', 'minutes', 'seconds', 'milliseconds'))
 
 
+def int_or_none(v, scale=1, default=None, get_attr=None, invscale=1):
+    if get_attr and v is not None:
+        v = getattr(v, get_attr, None)
+    try:
+        return int(v) * invscale // scale
+    except (ValueError, TypeError, OverflowError):
+        return default
+
+
 def float_or_none(v, scale=1, invscale=1, default=None):
     if v is None:
         return default

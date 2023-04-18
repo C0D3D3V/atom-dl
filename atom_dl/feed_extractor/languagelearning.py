@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import lxml.html
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
+from atom_dl.utils import float_or_none
 
 
 class LanguagelearningFIE(FeedInfoExtractor):
@@ -98,15 +99,18 @@ class LanguagelearningFIE(FeedInfoExtractor):
                     only_size = only_size.replace(',', '.')  # fix dezimal point
                     only_size = only_size.replace(' ', '')  # remove spaces
                     only_size = only_size.upper().strip()
+                    total_to_add = 0
                     if only_size.endswith('KB'):
                         only_size = only_size[:-2]
-                        total += float(only_size) / 1000
+                        total_to_add = float_or_none(only_size, scale=1000)
                     if only_size.endswith('MB'):
                         only_size = only_size[:-2]
-                        total += float(only_size)
+                        total_to_add = float_or_none(only_size)
                     elif only_size.endswith('GB'):
                         only_size = only_size[:-2]
-                        total += float(only_size) * 1000
+                        total_to_add = float_or_none(only_size, invscale=1000)
+                    if total_to_add is not None:
+                        total += total_to_add
                 except ValueError:
                     pass
             if total > 0:

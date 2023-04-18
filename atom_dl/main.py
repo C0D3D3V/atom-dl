@@ -193,6 +193,7 @@ def main(args=None):
             offline_feed_processor = OfflineFeedProcessor(args.process_offline_feed, verify_tls_certs)
             offline_feed_processor.process()
         elif args.feed_jdownloader:
+            # TODO: Add option to restart JDownloader if it is not connected
             jobs_feeder = JobsFeeder(args.do_not_auto_start_downloading)
             jobs_feeder.process()
         elif args.extract_archives:

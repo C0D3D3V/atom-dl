@@ -11,10 +11,10 @@ import lxml.html
 from lxml import etree
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
+from atom_dl.utils import float_or_none
 
 
 class IbooksFIE(FeedInfoExtractor):
-
     max_page_url = 'https://ibooks.to/page/2/'
     max_page_pattern = re.compile(r'Seite 2 von (\d+)')
     feed_url = 'https://ibooks.to/feed/atom/?paged={page_id}'
@@ -75,11 +75,11 @@ class IbooksFIE(FeedInfoExtractor):
                     only_unit = match[1].upper()
                     size_info = f'{only_size} {only_unit}'
                     if only_unit.endswith('KB'):
-                        size_in_mb = float(only_size) / 1000
+                        size_in_mb = float_or_none(only_size, scale=1000)
                     if only_unit.endswith('MB'):
-                        size_in_mb = float(only_size)
+                        size_in_mb = float_or_none(only_size)
                     elif only_unit.endswith('GB'):
-                        size_in_mb = float(only_size) * 1000
+                        size_in_mb = float_or_none(only_size, invscale=1000)
 
             if len(title_nodes) == 0:
                 print(f"\r\033[KError in {page_link} idx {idx}, no title found")

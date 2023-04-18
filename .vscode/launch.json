@@ -2,7 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Atom Downloader",
+            "name": "Atom-DL Process latest Feed",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/atom-dl",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/debugging-atom-dl/",
+            "args": [
+                "-v",
+                "-plf",
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Atom-DL Feed JDownloader",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/atom-dl",

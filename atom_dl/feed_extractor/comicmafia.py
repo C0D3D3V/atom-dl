@@ -11,10 +11,10 @@ import lxml.html
 from lxml import etree
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
+from atom_dl.utils import int_or_none
 
 
 class ComicmafiaFIE(FeedInfoExtractor):
-
     max_page_url = 'https://comicmafia.to/'
     max_page_pattern = re.compile(r'<a class="page-numbers" href="https://comicmafia.to/page/(\d+)/">')
     feed_url = 'https://comicmafia.to/feed/atom/?paged={page_id}'
@@ -119,7 +119,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
                             only_size = only_size.upper().strip()
                             if only_size.endswith('MB'):
                                 only_size = only_size[:-2]
-                                size_in_mb = int(only_size)
+                                size_in_mb = int_or_none(only_size)
                             break
 
             password = 'comicmafia.to'
