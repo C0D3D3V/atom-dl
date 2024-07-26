@@ -1,7 +1,7 @@
 import asyncio
+import logging
 import re
-
-from typing import List, Dict
+from typing import Dict, List
 from urllib.parse import urlparse
 
 import lxml.html
@@ -23,7 +23,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
         try:
             root = lxml.html.fromstring(page_text)
         except ValueError as error:
-            print(f"\r\033[KError in {page_link}, could not parse html! {error}")
+            logging.error("Error in %s, could not parse HTML! %s", page_link, error)
             return None
 
         page_id_nodes = root.xpath('//link[@rel="shortlink"]/@href')
@@ -33,7 +33,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
 
         entry_nodes = root.xpath('//main//article//div[@class="inside-article"]')
         if len(entry_nodes) != 1:
-            print(f"\r\033[KError in {page_link}, no entry found!")
+            logging.error("Error in %s, no entry found!", page_link)
             return None
 
         entry = entry_nodes[0]
@@ -48,7 +48,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
         category_nodes = entry.xpath('.//a[@rel="category tag"]/text()')
 
         if len(title_nodes) == 0:
-            print(f"\r\033[KError in {page_link}, no title found")
+            logging.error("Error in %s, no title found", page_link)
             return None
         title = title_nodes[0]
 
@@ -129,7 +129,7 @@ class LanguagelearningFIE(FeedInfoExtractor):
                 if urlparse(clean_link).netloc not in self.forbidden_hoster:
                     download_links.append(clean_link)
         if len(download_links) == 0:
-            print(f"\r\033[KError in {page_link} for {title}, no download link found")
+            logging.error("Error in %s for %s, no download link found", page_link, title)
             return None
 
         password = 'languagelearning.site'

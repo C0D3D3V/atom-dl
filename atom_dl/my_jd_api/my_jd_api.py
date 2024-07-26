@@ -1627,7 +1627,7 @@ class MyJdApi:
                     timeout=50,
                 )
             except requests.exceptions.RequestException as error:
-                print(error)
+                logging.error(error)
                 return None
         if encrypted_response.status_code != 200:
             try:

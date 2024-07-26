@@ -21,14 +21,14 @@ class FeedUpdater:
             return
 
         # Serializing json
-        print('Serializing feed json')
+        logging.info('Serializing feed json')
         path_of_feed_json = PT.get_path_of_feed_json(feed_name)
         append_list_to_json(path_of_feed_json, latest_feed_list)
-        print(f'Appended latest feed json to {path_of_feed_json}')
+        logging.info('Appended latest feed json to %s', path_of_feed_json)
 
         # Writing only latest feed to file
         # path_of_latest_feed_json = PT.get_path_of_new_feed_json(feed_name)
-        # print(f'Saving latest feed json to {path_of_latest_feed_json}')
+        # logging.info(f'Saving latest feed json to {path_of_latest_feed_json}')
         # json_object = orjson.dumps(latest_feed_list, option=orjson.OPT_INDENT_2)  # pylint: disable=maybe-no-member
         # with open(path_of_latest_feed_json, "wb") as output_file:
         #     output_file.write(json_object)

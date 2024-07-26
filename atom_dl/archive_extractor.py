@@ -274,11 +274,9 @@ class ArchiveExtractor:
                         with source, target:
                             shutil.copyfileobj(source, target)
 
-                        print(
-                            f"\r\033[KDone: {idx_file + 1:04} / {num_files_to_extract:04} files {next(self.spinner)}",
-                            end='',
+                        logging.info(
+                            "Done: %04d / %04d files %s", idx_file + 1, num_files_to_extract, next(self.spinner)
                         )
-                    print()
 
                     if part_num == 0:
                         # For single part archives we just want to delete this file
@@ -295,8 +293,8 @@ class ArchiveExtractor:
             # Remove all extracted archives
             for file_to_delete in extracted_files_in_package:
                 file_to_delete_path = PT.make_path(package_path, file_to_delete)
-                print(f'Info: Deleting {file_to_delete_path}')
+                logging.warning('Info: Deleting %s', file_to_delete_path)
                 try:
                     os.remove(file_to_delete_path)
                 except OSError as delete_err:
-                    print(f'Failed to remove: {file_to_delete_path} - Error: {delete_err}')
+                    logging.error('Failed to remove: %s - Error: %s', file_to_delete_path, delete_err)

@@ -296,7 +296,6 @@ def main(args=None):
         logging.info('All done. Exiting..')
         process_unlock()
     except BaseException as base_err:
-        print('\n')
         if not isinstance(base_err, LockError):
             process_unlock()
 

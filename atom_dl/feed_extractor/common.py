@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 import sys
 import time
@@ -103,10 +104,10 @@ class FeedInfoExtractor:
                         result_list.append(result)
                     status_dict['done'] += 1
                 else:
-                    print(f'\r\033[KFailed to extract {link}')
+                    logging.error('Failed to extract %s', link)
                     status_dict['failed'] += 1
             except ClientResponseError as e:
-                print(f'\r\033[KInvalid response ({e.status}) for {link}')
+                logging.error('Invalid response (%s) for %s', e.status, link)
                 status_dict['failed'] += 1
             except RetryException as e:
                 if retried < self.opts.max_reties_of_downloads:
@@ -114,7 +115,7 @@ class FeedInfoExtractor:
                     allowed_to_retry = True
                     await asyncio.sleep(e.retry_after)
                 else:
-                    print(f'\r\033[KMax retries reached for {link}')
+                    logging.error('Max retries reached for %s', link)
                     status_dict['failed'] += 1
 
     async def _real_fetch_all_pages_and_extract(
@@ -171,7 +172,7 @@ class FeedInfoExtractor:
 
         result = pattern.findall(response.text)
         if len(result) <= 0:
-            print(f'Error! Max page for {url} not found!')
+            logging.error('Error! Max page for %s not found!', url)
             sys.exit(1)
 
         return int(result[-1])
@@ -188,19 +189,19 @@ class FeedInfoExtractor:
                     if len(error) > 100:
                         error = page_text[:100]
 
-                print(f"\r\033[KError in {page_link}, no xml file downloaded! Page says: {error}")
+                logging.error("Error in %s, no XML file downloaded! Page says: %s", page_link, error)
                 raise RetryException("Retry needed, no xml file downloaded", retry_after=5)
             root = etree.fromstring(bytes(page_text, encoding='utf8'))  # or remove the declaration
         except ValueError as error:
-            print(f"\r\033[KError in {page_link}, could not parse xml! {error}")
+            logging.error("Error in %s, could not parse XML! %s", page_link, error)
             return None
         except etree.XMLSyntaxError as error:
             try:
                 # Try with beautifulsoup
-                print(f"\r\033[KError in {page_link}, could not parse xml! {error} - Retry with beautifulsoup")
+                logging.error("Error in %s, could not parse XML! %s - Retry with BeautifulSoup", page_link, error)
                 root = soupparser.fromstring(page_text)
             except etree.XMLSyntaxError as error_inner:
-                print(f"\r\033[KError in {page_link}, could not parse xml! {error_inner}")
+                logging.error("Error in %s, could not parse XML! %s", page_link, error_inner)
                 raise RetryException("Retry needed, could not parse xml", retry_after=5)
         return root
 
@@ -235,7 +236,7 @@ class FeedInfoExtractor:
                     if len(published_nodes) > 0:
                         parsed_published_date = datetime.strptime(published_nodes[0], self.default_time_format)
                     else:
-                        print(f'Failed to parse date for entry on {link} idx {idx}')
+                        logging.error('Failed to parse date for entry on %s idx %d', link, idx)
                         continue
 
                     if parsed_published_date <= self.until_date:
@@ -244,7 +245,7 @@ class FeedInfoExtractor:
                         continue
 
                     if len(page_link_nodes) == 0:
-                        print(f'Failed to find page link {link} on {link} idx {idx}')
+                        logging.error('Failed to find page link %s on %s idx %d', link, link, idx)
                         continue
 
                     page_link = page_link_nodes[0]
@@ -252,10 +253,10 @@ class FeedInfoExtractor:
                 status_dict['done'] += 1
 
             except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
-                print(f'\r\033[KFailed to crawl {link}: {error}')
+                logging.error('Failed to crawl %s: %s', link, error)
                 status_dict['failed'] += 1
             except ClientResponseError as error:
-                print(f'\r\033[KInvalid response ({error.status}) for {link}')
+                logging.error('Invalid response (%s) for %s', error.status, link)
                 status_dict['failed'] += 1
             except RetryException as e:
                 if retried < self.opts.max_reties_of_downloads:
@@ -263,7 +264,7 @@ class FeedInfoExtractor:
                     allowed_to_retry = True
                     await asyncio.sleep(e.retry_after)
                 else:
-                    print(f'\r\033[KMax retries reached for {link}')
+                    logging.error('Max retries reached for %s', link)
                     status_dict['failed'] += 1
 
     async def _real_crawl_all_atom_page_links(
@@ -320,18 +321,23 @@ class FeedInfoExtractor:
         while (
             status_dict.get('done', 0) + status_dict.get('skipped', 0) + status_dict.get('failed', 0)
         ) < status_dict.get('total', 0) and not status_dict.get('stop', True):
-            print(
-                f"\r\033[K{status_dict.get('preamble', 'Done: ')}:"
-                + f" {status_dict.get('done', 0):04}/{status_dict.get('total', 0):04}"
-                + f" {next(spinner)}",
-                end='',
+            logging.info(
+                "%s: %04d/%04d %s",
+                status_dict.get('preamble', 'Done: '),
+                status_dict.get('done', 0),
+                status_dict.get('total', 0),
+                next(spinner),
             )
-            await asyncio.sleep(0.3)
-        print(
-            f"\r\033[K{status_dict.get('done_msg', 'Done: ')} "
-            + f" Successful: {status_dict.get('done', 0):04}/{status_dict.get('total', 0):04}"
-            + f" Failed: {status_dict.get('failed', 0):04}/{status_dict.get('total', 0):04}"
-            + f" Skipped: {status_dict.get('skipped', 0):04}/{status_dict.get('total', 0):04}"
+            await asyncio.sleep(1)
+        logging.info(
+            "%s Successful: %04d/%04d Failed: %04d/%04d Skipped: %04d/%04d",
+            status_dict.get('done_msg', 'Done: '),
+            status_dict.get('done', 0),
+            status_dict.get('total', 0),
+            status_dict.get('failed', 0),
+            status_dict.get('total', 0),
+            status_dict.get('skipped', 0),
+            status_dict.get('total', 0),
         )
 
     @classmethod
@@ -371,14 +377,14 @@ class FeedInfoExtractor:
     def download_latest_feed(self) -> List[Dict]:
         startTime = time.time()
         startTimeStr = time.strftime("%d.%m %H:%M:%S", time.localtime(startTime))
-        print(f'{self.fie_key()} feed downloader started at {startTimeStr}')
+        logging.info('%s feed downloader started at %s', self.fie_key(), startTimeStr)
 
         result_list = self._real_download_latest_feed()
 
         endTime = time.time()
         endTimeStr = time.strftime("%d.%m %H:%M:%S", time.localtime(endTime))
         tookMs = endTime - startTime
-        print(f'{self.fie_key()} feed downloader finished at {endTimeStr} and took {formatSeconds(tookMs)}')
+        logging.info('%s feed downloader finished at %s and took %s', self.fie_key(), endTimeStr, formatSeconds(tookMs))
 
         return result_list
 

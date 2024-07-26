@@ -242,15 +242,15 @@ def timetuple_from_msec(msec):
     return _timetuple(hrs, mins, secs, msec)
 
 
-def formatSeconds(secs, delim=':', msec=False):
+def formatSeconds(secs, msec=False):
     time = timetuple_from_msec(secs * 1000)
     if time.hours:
-        ret = '%d%s%02d%s%02d' % (time.hours, delim, time.minutes, delim, time.seconds)
+        ret = '%dh %02dm %02ds' % (time.hours, time.minutes, time.seconds)
     elif time.minutes:
-        ret = '%d%s%02d' % (time.minutes, delim, time.seconds)
+        ret = '%dm %02ds' % (time.minutes, time.seconds)
     else:
-        ret = '%d' % time.seconds
-    return '%s.%03d' % (ret, time.milliseconds) if msec else ret
+        ret = '%ds' % time.seconds
+    return '%s.%03ds' % (ret, time.milliseconds) if msec else ret
 
 
 def load_list_from_json(json_file_path: str) -> List[Dict]:

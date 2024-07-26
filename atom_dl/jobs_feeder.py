@@ -177,12 +177,10 @@ class JobsFeeder:
                 and len(self.filenames_jobs) == 0
             ):
                 self.finished = True
-                logging.info('\n All Jobs Done')
+                logging.info('All Jobs Done')
                 return
-            print(
-                f"\r\033[KDone: {len(self.checked_jobs):04} / {self.num_jobs_total:04} Jobs {next(spinner)}",
-                end='',
-            )
+            logging.info("Done: %04d / %04d Jobs %s", len(self.checked_jobs), self.num_jobs_total, next(spinner))
+
             await asyncio.sleep(1)
 
     async def send_jobs_to_jd(self):

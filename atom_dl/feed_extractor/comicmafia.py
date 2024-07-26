@@ -1,12 +1,12 @@
 import asyncio
 import html
+import logging
 import re
 from datetime import datetime
 from typing import Dict, List
 from urllib.parse import urlparse
 
 import lxml.html
-from lxml import etree
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
 from atom_dl.utils import int_or_none
@@ -24,7 +24,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
 
         entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
         if len(entry_nodes) == 0:
-            print(f"\r\033[KError in {page_link}, no entry found!")
+            logging.error("Error in %s, no entry found!", page_link)
             return None
 
         result_list = []
@@ -38,7 +38,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
             html_content_nodes = entry.xpath('.//atom:content/text()', namespaces=self.xml_ns)
 
             if len(html_content_nodes) == 0:
-                print(f"Error in {page_link} for idx {idx}, no content found")
+                logging.error("Error in %s for idx %d, no content found", page_link, idx)
                 continue
             html_content = html_content_nodes[0].strip()
             content_root = lxml.html.fromstring(html_content)
@@ -56,7 +56,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
                 )
 
             if len(title_nodes) == 0:
-                print(f"\r\033[KError in {page_link} idx {idx}, no title found")
+                logging.error("Error in %s idx %d, no title found", page_link, idx)
                 continue
             title = html.unescape(title_nodes[0])
 
@@ -91,7 +91,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
                     if urlparse(clean_link).netloc not in self.forbidden_hoster:
                         download_links.append(clean_link)
             if len(download_links) == 0:
-                print(f"\r\033[KError in {page_link} idx {idx} for {title}, no download link found")
+                logging.error("Error in %s idx %d for %s, no download link found", page_link, idx, title)
                 continue
 
             that_page_link = None
