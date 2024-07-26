@@ -212,47 +212,59 @@ class FeedInfoExtractor:
         status_dict: Dict,
         worker_pool: FetchWorkerPool,
     ):
-        try:
-            async with worker_pool.acquire_worker() as worker:
-                if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
-                    status_dict['skipped'] += 1
-                    return
-                xml = await worker.fetch(link)
+        retried = 0
+        allowed_to_retry = True
+        while allowed_to_retry:
+            allowed_to_retry = False
+            try:
+                async with worker_pool.acquire_worker() as worker:
+                    if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
+                        status_dict['skipped'] += 1
+                        return
+                    xml = await worker.fetch(link)
 
-            root = etree.fromstring(xml)
+                root = self.load_xml_from_string(link, xml)
 
-            entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
-            for idx, entry in enumerate(entry_nodes):
-                page_link_nodes = entry.xpath('.//atom:link[@rel="alternate"]/@href', namespaces=self.xml_ns)
-                # updated_nodes = entry.xpath('.//atom:updated/text()', namespaces=self.xml_ns)
-                published_nodes = entry.xpath('.//atom:published/text()', namespaces=self.xml_ns)
+                entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
+                for idx, entry in enumerate(entry_nodes):
+                    page_link_nodes = entry.xpath('.//atom:link[@rel="alternate"]/@href', namespaces=self.xml_ns)
+                    # updated_nodes = entry.xpath('.//atom:updated/text()', namespaces=self.xml_ns)
+                    published_nodes = entry.xpath('.//atom:published/text()', namespaces=self.xml_ns)
 
-                parsed_published_date = None
-                if len(published_nodes) > 0:
-                    parsed_published_date = datetime.strptime(published_nodes[0], self.default_time_format)
+                    parsed_published_date = None
+                    if len(published_nodes) > 0:
+                        parsed_published_date = datetime.strptime(published_nodes[0], self.default_time_format)
+                    else:
+                        print(f'Failed to parse date for entry on {link} idx {idx}')
+                        continue
+
+                    if parsed_published_date <= self.until_date:
+                        if status_dict["skip_after"] is None or status_dict["skip_after"] > page_idx:
+                            status_dict['skip_after'] = page_idx
+                        continue
+
+                    if len(page_link_nodes) == 0:
+                        print(f'Failed to find page link {link} on {link} idx {idx}')
+                        continue
+
+                    page_link = page_link_nodes[0]
+                    page_links_list.append(page_link)
+                status_dict['done'] += 1
+
+            except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
+                print(f'\r\033[KFailed to crawl {link}: {error}')
+                status_dict['failed'] += 1
+            except ClientResponseError as error:
+                print(f'\r\033[KInvalid response ({error.status}) for {link}')
+                status_dict['failed'] += 1
+            except RetryException as e:
+                if retried < self.opts.max_reties_of_downloads:
+                    retried += 1
+                    allowed_to_retry = True
+                    await asyncio.sleep(e.retry_after)
                 else:
-                    print(f'Failed to parse date for entry on {link} idx {idx}')
-                    continue
-
-                if parsed_published_date <= self.until_date:
-                    if status_dict["skip_after"] is None or status_dict["skip_after"] > page_idx:
-                        status_dict['skip_after'] = page_idx
-                    continue
-
-                if len(page_link_nodes) == 0:
-                    print(f'Failed to find page link {link} on {link} idx {idx}')
-                    continue
-
-                page_link = page_link_nodes[0]
-                page_links_list.append(page_link)
-            status_dict['done'] += 1
-
-        except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
-            print(f'\r\033[KFailed to crawl {link}: {error}')
-            status_dict['failed'] += 1
-        except ClientResponseError as error:
-            print(f'\r\033[KInvalid response ({error.status}) for {link}')
-            status_dict['failed'] += 1
+                    print(f'\r\033[KMax retries reached for {link}')
+                    status_dict['failed'] += 1
 
     async def _real_crawl_all_atom_page_links(
         self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
