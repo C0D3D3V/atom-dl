@@ -20,3 +20,5 @@ class AtomDlOpts:
     quiet: bool
     log_to_file: bool
     log_file_path: str
+
+    max_reties_of_downloads: int = 3

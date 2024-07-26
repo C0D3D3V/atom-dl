@@ -11,6 +11,8 @@
             "args": [
                 "-v",
                 "-plf",
+                "--max-parallel-downloads",
+                "5"
             ],
             "justMyCode": false
         },

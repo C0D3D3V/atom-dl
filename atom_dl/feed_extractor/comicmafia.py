@@ -1,13 +1,11 @@
 import asyncio
 import html
 import re
-
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, List
 from urllib.parse import urlparse
 
 import lxml.html
-
 from lxml import etree
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor, TopCategory
@@ -20,10 +18,8 @@ class ComicmafiaFIE(FeedInfoExtractor):
     feed_url = 'https://comicmafia.to/feed/atom/?paged={page_id}'
 
     def page_metadata_extractor(self, page_idx: int, page_link: str, page_text: str, status_dict: Dict):
-        try:
-            root = etree.fromstring(bytes(page_text, encoding='utf8'))
-        except ValueError as error:
-            print(f"\r\033[KError in {page_link}, could not parse xml! {error}")
+        root = self.load_xml_from_string(page_link, page_text)
+        if root is None:
             return None
 
         entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
@@ -49,7 +45,7 @@ class ComicmafiaFIE(FeedInfoExtractor):
 
             image_link_nodes = content_root.xpath('.//div[@class="wp-block-image"]//img/@src')
             image_link_srcset_nodes = content_root.xpath('//div[@class="wp-block-image"]//img/@srcset')
-            download_link_nodes = content_root.xpath('.//a[@target="_blank"]/@href')
+            download_link_nodes = content_root.xpath('.//p[@class="has-text-align-center"]/a[@target="_blank"]/@href')
             extra_info_nodes = content_root.xpath('//a[@target="_blank"]/text()')
             package_content_list_nodes = content_root.xpath('.//strong//span')
             description = None

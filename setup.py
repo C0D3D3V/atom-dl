@@ -40,6 +40,8 @@ setup(
         'colorama>=0.4.6',
         'rarfile>=4.2',
         'colorlog>=6.7.0',
+        'pycryptodomex>=3.20.0',
+        'beautifulsoup4>=4.12.3',  # for fixing broken xml (optional dep of lxml)
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

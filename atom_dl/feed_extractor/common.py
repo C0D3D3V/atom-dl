@@ -9,7 +9,9 @@ from itertools import cycle
 from typing import Dict, List
 
 from aiohttp import ClientResponseError
+from bs4 import BeautifulSoup
 from lxml import etree
+from lxml.html import soupparser
 from requests.exceptions import RequestException
 
 from atom_dl.types import AtomDlOpts
@@ -30,6 +32,14 @@ class TopCategory(Enum):
     series = 'Serien'
     anime = 'Anime'
     software = 'Software'
+
+
+class RetryException(Exception):
+    """Custom exception to indicate that the operation should be retried."""
+
+    def __init__(self, message="Retry required", retry_after=1):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class FeedInfoExtractor:
@@ -75,48 +85,61 @@ class FeedInfoExtractor:
         status_dict: Dict,
         worker_pool: FetchWorkerPool,
     ):
-        if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
-            status_dict['skipped'] += 1
-            return
-        try:
-            page_text = await worker_pool.fetch(link)
-            result = extractor_method(page_idx, link, page_text, status_dict)
-            if result is not None:
-                if isinstance(result, list):
-                    result_list += result
+        retried = 0
+        allowed_to_retry = True
+        while allowed_to_retry:
+            allowed_to_retry = False
+            try:
+                async with worker_pool.acquire_worker() as worker:
+                    if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
+                        status_dict['skipped'] += 1
+                        return
+                    page_text = await worker.fetch(link)
+                result = extractor_method(page_idx, link, page_text, status_dict)
+                if result is not None:
+                    if isinstance(result, list):
+                        result_list += result
+                    else:
+                        result_list.append(result)
+                    status_dict['done'] += 1
                 else:
-                    result_list.append(result)
-                status_dict['done'] += 1
-            else:
-                print(f'\r\033[KFailed to extract {link}')
+                    print(f'\r\033[KFailed to extract {link}')
+                    status_dict['failed'] += 1
+            except ClientResponseError as e:
+                print(f'\r\033[KInvalid response ({e.status}) for {link}')
                 status_dict['failed'] += 1
-        except ClientResponseError as e:
-            print(f'\r\033[KInvalid response ({e.status}) for {link}')
-            status_dict['failed'] += 1
+            except RetryException as e:
+                if retried < self.opts.max_reties_of_downloads:
+                    retried += 1
+                    allowed_to_retry = True
+                    await asyncio.sleep(e.retry_after)
+                else:
+                    print(f'\r\033[KMax retries reached for {link}')
+                    status_dict['failed'] += 1
 
     async def _real_fetch_all_pages_and_extract(
         self, page_links_list: List, extractor_method, result_list: List[Dict], status_dict: Dict
     ):
-        worker_pool = FetchWorkerPool(
+        async with FetchWorkerPool(
             self.opts.max_parallel_downloads,
             self.opts.skip_cert_verify,
             self.opts.allow_insecure_ssl,
             self.opts.use_all_ciphers,
-        )
-        gather_jobs = asyncio.gather(
-            *[
-                self.fetch_page_and_extract(
-                    page_idx, page_link, extractor_method, result_list, status_dict, worker_pool
-                )
-                for page_idx, page_link in enumerate(page_links_list)
-            ],
-        )
-        try:
-            await gather_jobs
-        except Exception:
-            traceback.print_exc()
-            gather_jobs.cancel()
-            sys.exit(1)
+        ) as worker_pool:
+            gather_jobs = asyncio.gather(
+                *[
+                    self.fetch_page_and_extract(
+                        page_idx, page_link, extractor_method, result_list, status_dict, worker_pool
+                    )
+                    for page_idx, page_link in enumerate(page_links_list)
+                ],
+            )
+            try:
+                await gather_jobs
+            except Exception:
+                traceback.print_exc()
+                gather_jobs.cancel()
+                sys.exit(1)
 
     async def fetch_all_pages_and_extract(self, page_links_list: List, extractor_method, result_list: List[Dict]):
         max_links_num = len(page_links_list)
@@ -153,6 +176,34 @@ class FeedInfoExtractor:
 
         return int(result[-1])
 
+    def load_xml_from_string(self, page_link: str, page_text: str):
+        try:
+            if not page_text.lstrip().startswith('<?xml'):
+                # Not an xml file, retry
+                try:
+                    soup = BeautifulSoup(page_text, 'lxml')
+                    error = soup.get_text(separator='\n', strip=True)
+                except Exception:
+                    error = page_text
+                    if len(error) > 100:
+                        error = page_text[:100]
+
+                print(f"\r\033[KError in {page_link}, no xml file downloaded! Page says: {error}")
+                raise RetryException("Retry needed, no xml file downloaded", retry_after=5)
+            root = etree.fromstring(bytes(page_text, encoding='utf8'))  # or remove the declaration
+        except ValueError as error:
+            print(f"\r\033[KError in {page_link}, could not parse xml! {error}")
+            return None
+        except etree.XMLSyntaxError as error:
+            try:
+                # Try with beautifulsoup
+                print(f"\r\033[KError in {page_link}, could not parse xml! {error} - Retry with beautifulsoup")
+                root = soupparser.fromstring(page_text)
+            except etree.XMLSyntaxError as error_inner:
+                print(f"\r\033[KError in {page_link}, could not parse xml! {error_inner}")
+                raise RetryException("Retry needed, could not parse xml", retry_after=5)
+        return root
+
     async def crawl_atom_page_links(
         self,
         page_idx: int,
@@ -161,12 +212,13 @@ class FeedInfoExtractor:
         status_dict: Dict,
         worker_pool: FetchWorkerPool,
     ):
-        if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
-            status_dict['skipped'] += 1
-            return
-
         try:
-            xml = await worker_pool.fetch(link)
+            async with worker_pool.acquire_worker() as worker:
+                if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
+                    status_dict['skipped'] += 1
+                    return
+                xml = await worker.fetch(link)
+
             root = etree.fromstring(xml)
 
             entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
@@ -205,26 +257,26 @@ class FeedInfoExtractor:
     async def _real_crawl_all_atom_page_links(
         self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
     ):
-        worker_pool = FetchWorkerPool(
+        async with FetchWorkerPool(
             self.opts.max_parallel_downloads,
             self.opts.skip_cert_verify,
             self.opts.allow_insecure_ssl,
             self.opts.use_all_ciphers,
-        )
-        gather_jobs = asyncio.gather(
-            *[
-                self.crawl_atom_page_links(
-                    page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, worker_pool
-                )
-                for page_idx in range(1, int(max_page_num) + 1)
-            ]
-        )
-        try:
-            await gather_jobs
-        except Exception:
-            traceback.print_exc()
-            gather_jobs.cancel()
-            sys.exit(1)
+        ) as worker_pool:
+            gather_jobs = asyncio.gather(
+                *[
+                    self.crawl_atom_page_links(
+                        page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, worker_pool
+                    )
+                    for page_idx in range(1, int(max_page_num) + 1)
+                ]
+            )
+            try:
+                await gather_jobs
+            except Exception:
+                traceback.print_exc()
+                gather_jobs.cancel()
+                sys.exit(1)
 
     def get_status_dict(self, total: int, preamble: str, done_msg: str):
         return {

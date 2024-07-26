@@ -10,6 +10,7 @@ import ssl
 import sys
 import tempfile
 import unicodedata
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List
@@ -25,14 +26,12 @@ from requests.utils import DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths
 class FetchWorker:
     def __init__(self, ssl_context: ssl.SSLContext):
         self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context))
-        self.last_domain = None
 
     async def close(self):
         await self.session.close()
 
     async def fetch(self, url: str) -> str:
         async with self.session.get(url) as response:
-            self.last_domain = urlparse(url).netloc
             return await response.text()
 
 
@@ -42,6 +41,13 @@ class FetchWorkerPool:
         self.workers = [FetchWorker(ssl_context) for _ in range(num_workers)]
         self.queue: asyncio.Queue[FetchWorker] = asyncio.Queue()
 
+    async def __aenter__(self):
+        await self.start_workers()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.stop_workers()
+
     async def start_workers(self):
         for worker in self.workers:
             await self.queue.put(worker)
@@ -50,23 +56,22 @@ class FetchWorkerPool:
         for worker in self.workers:
             await worker.close()
 
-    async def get_worker_direct(self) -> FetchWorker:
-        return await self.queue.get()
-
-    async def get_worker(self, domain: str) -> FetchWorker:
-        for _ in range(self.queue.qsize()):
-            worker = await self.queue.get()
-            if worker.last_domain == domain or worker.last_domain is None:
-                return worker
-            await self.queue.put(worker)
+    async def get_worker(self) -> FetchWorker:
         return await self.queue.get()
 
     async def release_worker(self, worker: FetchWorker):
         await self.queue.put(worker)
 
+    @asynccontextmanager
+    async def acquire_worker(self):
+        worker = await self.get_worker()
+        try:
+            yield worker
+        finally:
+            await self.release_worker(worker)
+
     async def fetch(self, url: str) -> str:
-        domain = urlparse(url).netloc
-        worker = await self.get_worker(domain)
+        worker = await self.get_worker()
         try:
             result = await worker.fetch(url)
         finally:
