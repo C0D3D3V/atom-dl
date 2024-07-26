@@ -4,15 +4,14 @@
 import base64
 import hashlib
 import hmac
-import orjson
 import time
+from typing import Dict
 
 # from urllib.request import urlopen
 from urllib.parse import quote
-from typing import Dict
 
+import orjson
 import requests
-
 from Cryptodome.Cipher import AES
 
 from atom_dl.my_jd_api.exception import (

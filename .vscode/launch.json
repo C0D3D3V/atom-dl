@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "Atom-DL Process latest Feed",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/atom-dl",
             "console": "integratedTerminal",
@@ -16,7 +16,7 @@
         },
         {
             "name": "Atom-DL Feed JDownloader",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/atom-dl",
             "console": "integratedTerminal",

@@ -1,3 +1,6 @@
+from atom_dl.types import AtomDlOpts
+
+
 def gen_extractor_classes():
     """Return a list of supported extractors.
     The order does matter; the first extractor matched is the one handling the URL.
@@ -7,11 +10,11 @@ def gen_extractor_classes():
     return _ALL_CLASSES
 
 
-def gen_extractors(verify_tls_certs: bool):
+def gen_extractors(opts: AtomDlOpts):
     """Return a list of an instance of every supported extractor.
     The order does matter; the first extractor matched is the one handling the URL.
     """
-    return [klass(verify_tls_certs) for klass in gen_extractor_classes()]
+    return [klass(opts) for klass in gen_extractor_classes()]
 
 
 def get_feed_extractor(ie_name):

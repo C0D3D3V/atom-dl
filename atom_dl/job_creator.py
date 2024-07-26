@@ -1,7 +1,8 @@
+import logging
 from typing import Dict, List
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor
-from atom_dl.utils import PathTools as PT, Log
+from atom_dl.utils import PathTools as PT
 
 
 class JobCreator:
@@ -12,7 +13,7 @@ class JobCreator:
     ):
         self.storage_path = storage_path
         if len(job_description) == 0:
-            Log.warning('Empty job description found! All Posts are jobs!')
+            logging.warning('Empty job description found! All Posts are jobs!')
         self.in_title = job_description.get('in_title', None)
         self.in_title_on_of = job_description.get('in_title_on_of', None)
         self.in_feeds = self.as_list_or_none(job_description.get('in_feeds', None))

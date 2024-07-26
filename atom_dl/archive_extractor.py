@@ -1,18 +1,19 @@
+import logging
 import os
 import re
 import shutil
 import traceback
-
 from itertools import cycle
 from pathlib import Path
 from typing import List, Union
-from zipfile import ZipInfo, ZipFile
+from zipfile import ZipFile, ZipInfo
 
-from rarfile import RarInfo, RarFile, Error as RarError
+from rarfile import Error as RarError
+from rarfile import RarFile, RarInfo
 
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor.common import TopCategory
-from atom_dl.utils import PathTools as PT, Log
+from atom_dl.utils import PathTools as PT
 
 
 class ArchiveExtractor:
@@ -27,7 +28,7 @@ class ArchiveExtractor:
         self.extract_passwords = [b'ibooks.to', b'comicmafia.to', b'languagelearning.site']
         self.spinner = cycle('/|\\-')
 
-        Log.info('Run rmlint before and after running archive extractor!')
+        logging.info('Run rmlint before and after running archive extractor!')
 
     def process(self):
         # Currently not all top categories are supported
@@ -145,7 +146,7 @@ class ArchiveExtractor:
             # Check if there is a file inside the archive that missis a wanted file type
             if len(exts_to_extract) > 0:
                 continue
-            Log.warning(f'WARNING: Missing wanted file type for `{stem_to_extract}`')
+            logging.warning('WARNING: Missing wanted file type for %r', stem_to_extract)
             for file_info in container_infolist:
                 if file_info.is_dir():
                     continue
@@ -154,7 +155,7 @@ class ArchiveExtractor:
                     continue
 
                 if stem == stem_to_extract:
-                    Log.info(f'Extracting instead `{ext}` for `{stem}`')
+                    logging.info('Extracting instead %r for %r', ext, stem)
                     file_stems_to_extract[stem].append(ext)
 
         return [
@@ -179,7 +180,7 @@ class ArchiveExtractor:
             with container.open(file_to_open):
                 pass
         except Exception as open_err:
-            Log.info(f'{type(open_err)}: {str(open_err)}')
+            logging.info('%s: %s', type(open_err), open_err)
 
     def set_password_if_needed(self, container: Union[ZipFile, RarFile]):
         if self.can_open_first_file(container):
@@ -241,7 +242,7 @@ class ArchiveExtractor:
                 if part_num > 1:
                     continue
 
-                Log.info(f'Start extracting `{package_file_path}`')
+                logging.info('Start extracting %r', package_file_path)
                 # Start extraction
                 try:
                     container = None
@@ -250,7 +251,7 @@ class ArchiveExtractor:
                     elif ext == 'rar':
                         container = RarFile(package_file_path)
                     if container is None:
-                        Log.warning(f'Could not open: {package_file_path}')
+                        logging.warning('Could not open: %r', package_file_path)
                         continue
 
                     self.set_password_if_needed(container)
@@ -260,7 +261,7 @@ class ArchiveExtractor:
                     files_to_extract = self.get_files_to_extract(container_infolist, extract_file_types)
 
                     if len(files_to_extract) == 0:
-                        Log.warning(f'No files found in `{package_file_path}`, maybe wrong password!')
+                        logging.warning('No files found in %r, maybe wrong password!', package_file_path)
                         continue
 
                     num_files_to_extract = len(files_to_extract)
@@ -287,8 +288,8 @@ class ArchiveExtractor:
                         multipart_arc_filenames = self.get_all_multipart_arc_filenames(package_file, package_files)
                         extracted_files_in_package.extend(multipart_arc_filenames)
                 except Exception as extract_err:
-                    Log.error(f"Error on: {package_file_path}")
-                    Log.error(f'{type(extract_err)}: {str(extract_err)}')
+                    logging.error("Error on: %r", package_file_path)
+                    logging.error('%s: %s', type(extract_err), extract_err)
                     traceback.print_exc()
 
             # Remove all extracted archives

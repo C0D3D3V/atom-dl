@@ -1,19 +1,15 @@
 import asyncio
 import bisect
+import logging
 import os
+import sys
 import traceback
-
 from itertools import cycle
 
 from atom_dl.config_helper import Config
 from atom_dl.my_jd_api import MyJdApi, MYJDException
-from atom_dl.utils import (
-    append_list_to_json,
-    load_list_from_json,
-    Log,
-    PathTools as PT,
-    write_to_json,
-)
+from atom_dl.utils import PathTools as PT
+from atom_dl.utils import append_list_to_json, load_list_from_json, write_to_json
 
 
 class JobsFeeder:
@@ -34,18 +30,18 @@ class JobsFeeder:
         config = Config()
         self.auto_start_downloading = config.get_auto_start_downloading()
 
-        Log.info("Try to connect to MyJDownloader...")
+        logging.info("Try to connect to MyJDownloader...")
         try:
             my_jd_username = config.get_my_jd_username()
             my_jd_password = config.get_my_jd_password()
             my_jd_device = config.get_my_jd_device()
         except ValueError as config_error:
-            Log.error(str(config_error))
-            Log.error(
+            logging.error(str(config_error))
+            logging.error(
                 "Please set all MyJDownloader settings in your configuration:\n"
                 + "{my_jd_username, my_jd_password, my_jd_device}"
             )
-            exit(-1)
+            sys.exit(-1)
         self.jd = MyJdApi()
         self.jd_device = None
         try:
@@ -53,18 +49,18 @@ class JobsFeeder:
             self.jd.connect(my_jd_username, my_jd_password)
             self.jd_device = self.jd.get_device(my_jd_device)
         except MYJDException as jd_error:
-            Log.error(str(jd_error).strip())
-            Log.error("Error no connection could be established with MyJDownloader.")
-            exit(-2)
+            logging.error(str(jd_error).strip())
+            logging.error("Error no connection could be established with MyJDownloader.")
+            sys.exit(-2)
 
     def __del__(self):
         try:
             self.jd.disconnect()
         except MYJDException as jd_error:
-            Log.error(str(jd_error).strip())
+            logging.error(str(jd_error).strip())
 
     def process(self):
-        Log.debug('Start working on jobs...')
+        logging.debug('Start working on jobs...')
         jobs_json_file_path = PT.get_path_of_jobs_json()
         self.new_jobs = load_list_from_json(jobs_json_file_path)
 
@@ -93,7 +89,7 @@ class JobsFeeder:
         except Exception:
             traceback.print_exc()
             gather_jobs.cancel()
-            exit(1)
+            sys.exit(1)
 
         append_list_to_json(PT.get_path_of_checked_jobs_json(), self.checked_jobs)
         self.save_all_done_links()
@@ -102,7 +98,7 @@ class JobsFeeder:
         if self.auto_start_downloading and not self.do_not_auto_start_downloading:
             self.start_downloads()
         else:
-            Log.info("Skipping auto downloading")
+            logging.info("Skipping auto downloading")
 
     def start_downloads(self):
         link_ids = []
@@ -119,9 +115,9 @@ class JobsFeeder:
 
         start_result = self.jd_device.downloadcontroller.start_downloads()
         if not start_result:
-            Log.warning('JDownloader did not start automatically!')
+            logging.warning('JDownloader did not start automatically!')
         else:
-            Log.success('JDownloader is starting downloading...')
+            logging.info('JDownloader is starting downloading...')
 
     def save_all_done_links(self):
         # Extract all decrypted links from checked_jobs
@@ -140,31 +136,35 @@ class JobsFeeder:
         self.done_links.sort()
         path_of_done_links_json = PT.get_path_of_done_links_json()
         write_to_json(path_of_done_links_json, self.done_links)
-        Log.info(f'Checked jobs appended to: {path_of_done_links_json}')
+        logging.info('Checked jobs appended to: %r', path_of_done_links_json)
 
     def delete_or_backup_done_jobs(self):
         # Handle old jobs json
         num_checked_jobs = len(self.checked_jobs)
         json_old_jobs_file_path = PT.get_path_of_jobs_json()
         if not os.path.isfile(json_old_jobs_file_path):
-            Log.warning(f'Warning: Could not find old jobs file {json_old_jobs_file_path}')
+            logging.warning('Warning: Could not find old jobs file %r', json_old_jobs_file_path)
 
         if num_checked_jobs != self.num_jobs_total:
             # Move jobs file to backup location
-            Log.warning(f'Warning: Only done {num_checked_jobs} out of {self.num_jobs_total} jobs')
+            logging.warning('Warning: Only done %d out of %d jobs', num_checked_jobs, self.num_jobs_total)
             json_backup_jobs_file_path = PT.get_path_of_backup_jobs_json()
             if os.path.isfile(json_old_jobs_file_path):
                 try:
                     os.rename(json_old_jobs_file_path, json_backup_jobs_file_path)
                 except OSError as err:
-                    Log.warning(f'Warning: Could not backup old jobs file {json_old_jobs_file_path} Error: {str(err)}')
+                    logging.warning(
+                        'Warning: Could not backup old jobs file %r Error: %s', json_old_jobs_file_path, err
+                    )
         else:
             # Remove old jobs file
             if os.path.isfile(json_old_jobs_file_path):
                 try:
                     os.remove(json_old_jobs_file_path)
                 except OSError as err:
-                    Log.warning(f'Warning: Could not delete old jobs file {json_old_jobs_file_path} Error: {str(err)}')
+                    logging.warning(
+                        'Warning: Could not delete old jobs file %r Error: %s', json_old_jobs_file_path, err
+                    )
 
     async def check_finish_condition(self):
         spinner = cycle('/|\\-')
@@ -177,7 +177,7 @@ class JobsFeeder:
                 and len(self.filenames_jobs) == 0
             ):
                 self.finished = True
-                Log.info('\n All Jobs Done')
+                logging.info('\n All Jobs Done')
                 return
             print(
                 f"\r\033[KDone: {len(self.checked_jobs):04} / {self.num_jobs_total:04} Jobs {next(spinner)}",

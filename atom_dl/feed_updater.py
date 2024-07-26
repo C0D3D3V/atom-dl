@@ -1,8 +1,10 @@
+import logging
 from datetime import datetime, timezone
-from typing import List, Dict
+from typing import Dict, List
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor
-from atom_dl.utils import Log, PathTools as PT, append_list_to_json, load_dict_from_json, write_to_json
+from atom_dl.utils import PathTools as PT
+from atom_dl.utils import append_list_to_json, load_dict_from_json, write_to_json
 
 
 class FeedUpdater:
@@ -40,7 +42,7 @@ class FeedUpdater:
         path_of_last_feed_update_json = PT.get_path_of_last_feed_update_json()
         until_dates = load_dict_from_json(path_of_last_feed_update_json)
         feed_name = self.feed_extractor.fie_key()
-        Log.debug(f"Downloading {feed_name} latest feed")
+        logging.debug("Downloading %r latest feed", feed_name)
         started_time = datetime.now(timezone.utc)
         started_time_str = datetime.strftime(started_time, self.default_time_format)
 
@@ -60,5 +62,5 @@ class FeedUpdater:
         until_dates[feed_name] = started_time_str
         write_to_json(path_of_last_feed_update_json, until_dates)
 
-        Log.success(f'Downloaded {feed_name} latest feed')
+        logging.info('Downloaded %r latest feed', feed_name)
         return latest_feed_list

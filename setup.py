@@ -1,6 +1,6 @@
 from os import path
-from setuptools import setup, find_packages
 
+from setuptools import find_packages, setup
 
 # Get the version from atom_dl/version.py without importing the package
 exec(compile(open('atom_dl/version.py').read(), 'atom_dl/version.py', 'exec'))
@@ -38,6 +38,8 @@ setup(
         'requests>2.28.1',
         'orjson>=3.8.3',
         'colorama>=0.4.6',
+        'rarfile>=4.2',
+        'colorlog>=6.7.0',
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

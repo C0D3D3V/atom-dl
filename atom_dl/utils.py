@@ -1,17 +1,147 @@
+import asyncio
 import collections
 import html
 import itertools
+import logging
 import math
 import os
 import re
+import ssl
 import sys
 import tempfile
 import unicodedata
-
-from typing import List, Dict
+from functools import lru_cache
 from pathlib import Path
+from typing import Dict, List
+from urllib.parse import urlparse
 
+import aiohttp
 import orjson
+import requests
+import urllib3
+from requests.utils import DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths
+
+
+class FetchWorker:
+    def __init__(self, ssl_context: ssl.SSLContext):
+        self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context))
+        self.last_domain = None
+
+    async def close(self):
+        await self.session.close()
+
+    async def fetch(self, url: str) -> str:
+        async with self.session.get(url) as response:
+            self.last_domain = urlparse(url).netloc
+            return await response.text()
+
+
+class FetchWorkerPool:
+    def __init__(self, num_workers: int, skip_cert_verify: bool, allow_insecure_ssl: bool, use_all_ciphers: bool):
+        ssl_context = SslHelper.get_ssl_context(skip_cert_verify, allow_insecure_ssl, use_all_ciphers)
+        self.workers = [FetchWorker(ssl_context) for _ in range(num_workers)]
+        self.queue: asyncio.Queue[FetchWorker] = asyncio.Queue()
+
+    async def start_workers(self):
+        for worker in self.workers:
+            await self.queue.put(worker)
+
+    async def stop_workers(self):
+        for worker in self.workers:
+            await worker.close()
+
+    async def get_worker_direct(self) -> FetchWorker:
+        return await self.queue.get()
+
+    async def get_worker(self, domain: str) -> FetchWorker:
+        for _ in range(self.queue.qsize()):
+            worker = await self.queue.get()
+            if worker.last_domain == domain or worker.last_domain is None:
+                return worker
+            await self.queue.put(worker)
+        return await self.queue.get()
+
+    async def release_worker(self, worker: FetchWorker):
+        await self.queue.put(worker)
+
+    async def fetch(self, url: str) -> str:
+        domain = urlparse(url).netloc
+        worker = await self.get_worker(domain)
+        try:
+            result = await worker.fetch(url)
+        finally:
+            await self.release_worker(worker)
+        return result
+
+
+class SslHelper:
+    warned_about_certifi = False
+
+    @classmethod
+    def load_default_certs(cls, ssl_context: ssl.SSLContext):
+        cert_loc = extract_zipped_paths(DEFAULT_CA_BUNDLE_PATH)
+
+        if not cert_loc or not os.path.exists(cert_loc):
+            if not cls.warned_about_certifi:
+                logging.warning(
+                    f"Certifi could not find a suitable TLS CA certificate bundle, invalid path: {cert_loc}"
+                )
+                cls.warned_about_certifi = True
+            ssl_context.load_default_certs()
+        else:
+            if not os.path.isdir(cert_loc):
+                ssl_context.load_verify_locations(cafile=cert_loc)
+            else:
+                ssl_context.load_verify_locations(capath=cert_loc)
+
+    @classmethod
+    @lru_cache(maxsize=8)
+    def get_ssl_context(cls, skip_cert_verify: bool, allow_insecure_ssl: bool, use_all_ciphers: bool) -> ssl.SSLContext:
+        if not skip_cert_verify:
+            ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            cls.load_default_certs(ssl_context)
+        else:
+            ssl_context = ssl._create_unverified_context()  # pylint: disable=protected-access
+
+        if allow_insecure_ssl:
+            # This allows connections to legacy insecure servers
+            # https://www.openssl.org/docs/manmaster/man3/SSL_CTX_set_options.html#SECURE-RENEGOTIATION
+            # Be warned the insecure renegotiation allows an attack, see:
+            # https://nvd.nist.gov/vuln/detail/CVE-2009-3555
+            ssl_context.options |= 0x4  # set ssl.OP_LEGACY_SERVER_CONNECT bit
+        if use_all_ciphers:
+            ssl_context.set_ciphers('ALL')
+
+        # Activate ALPN extension
+        ssl_context.set_alpn_protocols(['http/1.1'])
+
+        return ssl_context
+
+    class CustomHttpAdapter(requests.adapters.HTTPAdapter):
+        '''
+        Transport adapter that allows us to use custom ssl_context.
+        See https://stackoverflow.com/a/71646353 for more details.
+        '''
+
+        def __init__(self, ssl_context=None, **kwargs):
+            self.ssl_context = ssl_context
+            super().__init__(**kwargs)
+
+        def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+            self.poolmanager = urllib3.poolmanager.PoolManager(
+                num_pools=connections, maxsize=maxsize, block=block, ssl_context=self.ssl_context, **pool_kwargs
+            )
+
+    @classmethod
+    def custom_requests_session(cls, skip_cert_verify: bool, allow_insecure_ssl: bool, use_all_ciphers: bool):
+        """
+        Return a new requests session with custom SSL context
+        """
+        session = requests.Session()
+        ssl_context = cls.get_ssl_context(skip_cert_verify, allow_insecure_ssl, use_all_ciphers)
+        session.mount('https://', cls.CustomHttpAdapter(ssl_context))
+        session.verify = not skip_cert_verify
+        return session
 
 
 def check_verbose() -> bool:
@@ -175,8 +305,8 @@ def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
             o_file.write(json_bytes)
 
     except (OSError, IOError) as err:
-        Log.error(f'Error: Could not append List to json: {json_file_path} Reason: {str(err)}')
-        exit(-1)
+        logging.error(f'Error: Could not append List to json: {json_file_path} Reason: {str(err)}')
+        sys.exit(-1)
     finally:
         if o_file is not None:
             o_file.close()
@@ -193,79 +323,8 @@ def write_to_json(json_file_path: str, item_to_store):
             o_file.write(json_bytes)
 
     except (OSError, IOError) as err:
-        Log.error(f'Error: Could not write item to json: {json_file_path} Reason: {str(err)}')
-        exit(-1)
-
-
-RESET_SEQ = '\033[0m'
-COLOR_SEQ = '\033[1;%dm'
-
-BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(30, 38)
-
-
-class Log:
-    """
-    Logs a given string to output with colors
-    :param logString: the string that should be logged
-
-    The string functions returns the strings that would be logged.
-    """
-
-    @staticmethod
-    def info_str(logString: str):
-        return COLOR_SEQ % WHITE + logString + RESET_SEQ
-
-    @staticmethod
-    def special_str(logString: str):
-        return COLOR_SEQ % BLUE + logString + RESET_SEQ
-
-    @staticmethod
-    def debug_str(logString: str):
-        return COLOR_SEQ % CYAN + logString + RESET_SEQ
-
-    @staticmethod
-    def warning_str(logString: str):
-        return COLOR_SEQ % YELLOW + logString + RESET_SEQ
-
-    @staticmethod
-    def error_str(logString: str):
-        return COLOR_SEQ % RED + logString + RESET_SEQ
-
-    @staticmethod
-    def critical_str(logString: str):
-        return COLOR_SEQ % MAGENTA + logString + RESET_SEQ
-
-    @staticmethod
-    def success_str(logString: str):
-        return COLOR_SEQ % GREEN + logString + RESET_SEQ
-
-    @staticmethod
-    def info(logString: str):
-        print(Log.info_str(logString))
-
-    @staticmethod
-    def special(logString: str):
-        print(Log.special_str(logString))
-
-    @staticmethod
-    def debug(logString: str):
-        print(Log.debug_str(logString))
-
-    @staticmethod
-    def warning(logString: str):
-        print(Log.warning_str(logString))
-
-    @staticmethod
-    def error(logString: str):
-        print(Log.error_str(logString))
-
-    @staticmethod
-    def critical(logString: str):
-        print(Log.critical_str(logString))
-
-    @staticmethod
-    def success(logString: str):
-        print(Log.success_str(logString))
+        logging.error(f'Error: Could not write item to json: {json_file_path} Reason: {str(err)}')
+        sys.exit(-1)
 
 
 NO_DEFAULT = object()

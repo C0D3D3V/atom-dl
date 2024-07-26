@@ -1,21 +1,23 @@
+import logging
+
 from atom_dl.config_helper import Config
 from atom_dl.feed_extractor import gen_extractors
-from atom_dl.feed_updater import FeedUpdater
 from atom_dl.job_creator import JobCreator
-from atom_dl.utils import PathTools as PT, Log, append_list_to_json, load_list_from_json
+from atom_dl.types import AtomDlOpts
+from atom_dl.utils import PathTools as PT
+from atom_dl.utils import append_list_to_json, load_list_from_json
 
 
 class OfflineFeedProcessor:
     def __init__(
         self,
-        path_to_job_defs: str,
-        verify_tls_certs: bool,
+        opts: AtomDlOpts,
     ):
-        self.path_to_job_defs = PT.get_abs_path(path_to_job_defs)
-        self.verify_tls_certs = verify_tls_certs
+        self.opts = opts
+        self.path_to_job_defs = PT.get_abs_path(opts.path_to_job_defs)
 
     def process(self):
-        all_feed_info_extractors = gen_extractors(self.verify_tls_certs)
+        all_feed_info_extractors = gen_extractors(self.opts)
 
         config = Config()
         storage_path = config.get_storage_path()
@@ -27,10 +29,10 @@ class OfflineFeedProcessor:
             job_creators.append(JobCreator(job_definition, storage_path))
 
         if len(job_creators) == 0:
-            Log.warning('No Jobs for offline feed are defined')
+            logging.warning('No Jobs for offline feed are defined')
             return
 
-        Log.debug('Start collecting jobs...')
+        logging.debug('Start collecting jobs...')
         jobs = []
         for extractor in all_feed_info_extractors:
             # Filter job creators based on feed name
@@ -53,12 +55,12 @@ class OfflineFeedProcessor:
                         # First job creator wins
                         break
 
-        Log.success('Collected all jobs')
+        logging.info('Collected all jobs')
 
         if len(jobs) == 0:
             return
 
-        Log.info('Appending jobs to jobs queue...')
+        logging.info('Appending jobs to jobs queue...')
         path_of_jobs_json = PT.get_path_of_jobs_json()
         append_list_to_json(path_of_jobs_json, jobs)
-        Log.info(f'Jobs appended to: {path_of_jobs_json}')
+        logging.info('Jobs appended to: %r', path_of_jobs_json)

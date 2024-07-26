@@ -1,21 +1,18 @@
+import asyncio
 import re
+import sys
 import time
 import traceback
-
 from datetime import datetime
 from enum import Enum
 from itertools import cycle
-from typing import List, Dict
-
-import aiohttp
-import asyncio
-import requests
+from typing import Dict, List
 
 from lxml import etree
-
 from requests.exceptions import RequestException
 
-from atom_dl.utils import formatSeconds
+from atom_dl.types import AtomDlOpts
+from atom_dl.utils import FetchWorkerPool, SslHelper, formatSeconds
 
 
 class TopCategory(Enum):
@@ -61,13 +58,9 @@ class FeedInfoExtractor:
         'www.comicmafia.to',
     ]
 
-    def __init__(self, verify_tls_certs: bool):
-        """
-        @param verify_tls_certs: if tls certificates should be verified
-        """
-        self.max_parallel_downloads = 10
+    def __init__(self, opts: AtomDlOpts):
         self.until_date = datetime.fromtimestamp(0)
-        self.verify_tls_certs = verify_tls_certs
+        self.opts = opts
 
     def init(self, until_date: datetime):
         self.until_date = until_date
@@ -79,37 +72,42 @@ class FeedInfoExtractor:
         extractor_method,
         result_list: List[Dict],
         status_dict: Dict,
-        semaphore: asyncio.Semaphore,
+        worker_pool: FetchWorkerPool,
     ):
-        async with semaphore:
-            if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
-                status_dict['skipped'] += 1
-                return
-            async with aiohttp.ClientSession() as session:
-                async with session.get(link, timeout=0, verify_ssl=self.verify_tls_certs) as response:
-                    if response.ok:
-                        page_text = await response.text()
-                        result = extractor_method(page_idx, link, page_text, status_dict)
-                        if result is not None:
-                            if isinstance(result, list):
-                                result_list += result
-                            else:
-                                result_list.append(result)
-                            status_dict['done'] += 1
-                        else:
-                            print(f'\r\033[KFailed to extract {link}')
-                            status_dict['failed'] += 1
-                    else:
-                        print(f'\r\033[KInvalid response ({response.status}) for {link}')
-                        status_dict['failed'] += 1
+        if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
+            status_dict['skipped'] += 1
+            return
+        response = await worker_pool.fetch(link)
+        if response.ok:
+            page_text = await response.text()
+            result = extractor_method(page_idx, link, page_text, status_dict)
+            if result is not None:
+                if isinstance(result, list):
+                    result_list += result
+                else:
+                    result_list.append(result)
+                status_dict['done'] += 1
+            else:
+                print(f'\r\033[KFailed to extract {link}')
+                status_dict['failed'] += 1
+        else:
+            print(f'\r\033[KInvalid response ({response.status}) for {link}')
+            status_dict['failed'] += 1
 
     async def _real_fetch_all_pages_and_extract(
         self, page_links_list: List, extractor_method, result_list: List[Dict], status_dict: Dict
     ):
-        semaphore = asyncio.Semaphore(self.max_parallel_downloads)
+        worker_pool = FetchWorkerPool(
+            self.opts.max_parallel_downloads,
+            self.opts.skip_cert_verify,
+            self.opts.allow_insecure_ssl,
+            self.opts.use_all_ciphers,
+        )
         gather_jobs = asyncio.gather(
             *[
-                self.fetch_page_and_extract(page_idx, page_link, extractor_method, result_list, status_dict, semaphore)
+                self.fetch_page_and_extract(
+                    page_idx, page_link, extractor_method, result_list, status_dict, worker_pool
+                )
                 for page_idx, page_link in enumerate(page_links_list)
             ],
         )
@@ -118,7 +116,7 @@ class FeedInfoExtractor:
         except Exception:
             traceback.print_exc()
             gather_jobs.cancel()
-            exit(1)
+            sys.exit(1)
 
     async def fetch_all_pages_and_extract(self, page_links_list: List, extractor_method, result_list: List[Dict]):
         max_links_num = len(page_links_list)
@@ -136,11 +134,13 @@ class FeedInfoExtractor:
 
     def get_max_page_for(self, url, pattern):
         try:
-            response = requests.get(
+            session = SslHelper.custom_requests_session(
+                self.opts.skip_cert_verify, self.opts.allow_insecure_ssl, self.opts.use_all_ciphers
+            )
+            response = session.get(
                 url,
                 headers=self.stdHeader,
                 allow_redirects=True,
-                verify=self.verify_tls_certs,
                 timeout=60,
             )
         except RequestException as error:
@@ -149,7 +149,7 @@ class FeedInfoExtractor:
         result = pattern.findall(response.text)
         if len(result) <= 0:
             print(f'Error! Max page for {url} not found!')
-            exit(1)
+            sys.exit(1)
 
         return int(result[-1])
 
@@ -159,64 +159,64 @@ class FeedInfoExtractor:
         link: str,
         page_links_list: List,
         status_dict: Dict,
-        semaphore: asyncio.Semaphore,
+        worker_pool: FetchWorkerPool,
     ):
-        async with semaphore:
-            if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
-                status_dict['skipped'] += 1
-                return
-            async with aiohttp.ClientSession() as session:
-                async with session.get(link, timeout=0, verify_ssl=self.verify_tls_certs) as response:
-                    if response.ok:
-                        try:
-                            xml = await response.read()
-                            root = etree.fromstring(xml)
+        if status_dict['skip_after'] is not None and page_idx > status_dict['skip_after']:
+            status_dict['skipped'] += 1
+            return
 
-                            entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
-                            for idx, entry in enumerate(entry_nodes):
-                                page_link_nodes = entry.xpath(
-                                    './/atom:link[@rel="alternate"]/@href', namespaces=self.xml_ns
-                                )
-                                # updated_nodes = entry.xpath('.//atom:updated/text()', namespaces=self.xml_ns)
-                                published_nodes = entry.xpath('.//atom:published/text()', namespaces=self.xml_ns)
+        response = await worker_pool.fetch(link)
+        if response.ok:
+            try:
+                xml = await response.read()
+                root = etree.fromstring(xml)
 
-                                parsed_published_date = None
-                                if len(published_nodes) > 0:
-                                    parsed_published_date = datetime.strptime(
-                                        published_nodes[0], self.default_time_format
-                                    )
-                                else:
-                                    print(f'Failed to parse date for entry on {link} idx {idx}')
-                                    continue
+                entry_nodes = root.xpath('//atom:entry', namespaces=self.xml_ns)
+                for idx, entry in enumerate(entry_nodes):
+                    page_link_nodes = entry.xpath('.//atom:link[@rel="alternate"]/@href', namespaces=self.xml_ns)
+                    # updated_nodes = entry.xpath('.//atom:updated/text()', namespaces=self.xml_ns)
+                    published_nodes = entry.xpath('.//atom:published/text()', namespaces=self.xml_ns)
 
-                                if parsed_published_date <= self.until_date:
-                                    if status_dict["skip_after"] is None or status_dict["skip_after"] > page_idx:
-                                        status_dict['skip_after'] = page_idx
-                                    continue
-
-                                if len(page_link_nodes) == 0:
-                                    print(f'Failed to find page link {link} on {link} idx {idx}')
-                                    continue
-
-                                page_link = page_link_nodes[0]
-                                page_links_list.append(page_link)
-                            status_dict['done'] += 1
-
-                        except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
-                            print(f'\r\033[KFailed to crawl {link}: {error}')
-                            status_dict['failed'] += 1
+                    parsed_published_date = None
+                    if len(published_nodes) > 0:
+                        parsed_published_date = datetime.strptime(published_nodes[0], self.default_time_format)
                     else:
-                        print(f'\r\033[KInvalid response ({response.status}) for {link}')
-                        status_dict['failed'] += 1
+                        print(f'Failed to parse date for entry on {link} idx {idx}')
+                        continue
+
+                    if parsed_published_date <= self.until_date:
+                        if status_dict["skip_after"] is None or status_dict["skip_after"] > page_idx:
+                            status_dict['skip_after'] = page_idx
+                        continue
+
+                    if len(page_link_nodes) == 0:
+                        print(f'Failed to find page link {link} on {link} idx {idx}')
+                        continue
+
+                    page_link = page_link_nodes[0]
+                    page_links_list.append(page_link)
+                status_dict['done'] += 1
+
+            except (FileNotFoundError, etree.XMLSyntaxError, ValueError) as error:
+                print(f'\r\033[KFailed to crawl {link}: {error}')
+                status_dict['failed'] += 1
+        else:
+            print(f'\r\033[KInvalid response ({response.status}) for {link}')
+            status_dict['failed'] += 1
 
     async def _real_crawl_all_atom_page_links(
         self, feed_url: str, max_page_num: int, page_links_list: List, status_dict: Dict
     ):
-        semaphore = asyncio.Semaphore(self.max_parallel_downloads)
+        worker_pool = FetchWorkerPool(
+            self.opts.max_parallel_downloads,
+            self.opts.skip_cert_verify,
+            self.opts.allow_insecure_ssl,
+            self.opts.use_all_ciphers,
+        )
         gather_jobs = asyncio.gather(
             *[
                 self.crawl_atom_page_links(
-                    page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, semaphore
+                    page_idx, feed_url.format(page_id=page_idx), page_links_list, status_dict, worker_pool
                 )
                 for page_idx in range(1, int(max_page_num) + 1)
             ]
@@ -226,7 +226,7 @@ class FeedInfoExtractor:
         except Exception:
             traceback.print_exc()
             gather_jobs.cancel()
-            exit(1)
+            sys.exit(1)
 
     def get_status_dict(self, total: int, preamble: str, done_msg: str):
         return {
