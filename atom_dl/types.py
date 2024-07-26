@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class AtomDlOpts:
     process_latest_feed: bool
-    process_offline_feed: bool
+    path_to_job_defs: str
     feed_jdownloader: bool
     extract_archives: bool
 

@@ -39,7 +39,7 @@ class ReRaiseOnError(logging.StreamHandler):
 
 def check_mandatory_settings():
     config = Config()
-    logging.info(f"Using configuration file `{config.get_config_path()}`")
+    logging.info("Using configuration file `%s`", config.get_config_path())
     logging.info("Checking the configuration for mandatory values...")
     try:
         storage_path = config.get_storage_path()
@@ -141,7 +141,7 @@ def get_parser():
     group.add_argument(
         '-pof',
         '--process-offline-feed',
-        dest='process_offline_feed',
+        dest='path_to_job_defs',
         default=None,
         type=str,
         help=('Collect all posts that match a job definition in a given job definition file'),
@@ -269,7 +269,7 @@ def choose_task(opts: AtomDlOpts):
     if opts.process_latest_feed:
         latest_feed_processor = LatestFeedProcessor(opts)
         latest_feed_processor.process()
-    elif opts.process_offline_feed:
+    elif opts.path_to_job_defs:
         offline_feed_processor = OfflineFeedProcessor(opts)
         offline_feed_processor.process()
     elif opts.feed_jdownloader:
