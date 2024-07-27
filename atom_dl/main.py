@@ -11,6 +11,7 @@ from logging.handlers import RotatingFileHandler
 
 import colorlog
 import requests  # noqa: F401 pylint: disable=unused-import
+import sentry_sdk
 import urllib3
 from colorama import just_fix_windows_console
 
@@ -258,6 +259,19 @@ def get_parser():
     return parser
 
 
+def connect_sentry() -> bool:
+    "Return True if connected"
+    try:
+        config = Config()
+        sentry_dsn = config.get_property('sentry_dsn')
+        if sentry_dsn:
+            sentry_sdk.init(sentry_dsn)
+            return True
+    except (ValueError, sentry_sdk.utils.BadDsn, sentry_sdk.utils.ServerlessTimeoutWarning):
+        pass
+    return False
+
+
 def post_process_opts(opts: AtomDlOpts):
     if opts.log_file_path is None:
         opts.log_file_path = PT.get_project_data_directory()
@@ -287,6 +301,7 @@ def main(args=None):
     just_fix_windows_console()
     opts = post_process_opts(AtomDlOpts(**vars(get_parser().parse_args(args))))
     setup_logger(opts)
+    sentry_connected = connect_sentry()
 
     check_mandatory_settings()
     try:
@@ -298,6 +313,8 @@ def main(args=None):
     except BaseException as base_err:
         if not isinstance(base_err, LockError):
             process_unlock()
+        if sentry_connected:
+            sentry_sdk.capture_exception(base_err)
 
         if opts.verbose or check_debug():
             logging.error(traceback.format_exc(), extra={'exception': base_err})

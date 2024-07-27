@@ -33,15 +33,15 @@ setup(
     install_requires=[
         'aiofiles>=0.6.0',
         'aiohttp>=3.8.1',
-        'lxml>=4.9.1',
-        'rarfile>=4.0',
-        'requests>2.28.1',
-        'orjson>=3.8.3',
-        'colorama>=0.4.6',
-        'rarfile>=4.2',
-        'colorlog>=6.7.0',
-        'pycryptodomex>=3.20.0',
         'beautifulsoup4>=4.12.3',  # for fixing broken xml (optional dep of lxml)
+        'colorama>=0.4.6',
+        'colorlog>=6.7.0',
+        'lxml>=4.9.1',
+        'orjson>=3.8.3',
+        'pycryptodomex>=3.20.0',
+        'rarfile>=4.2',
+        'requests>2.28.1',
+        'sentry_sdk>=0.13.5',
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
