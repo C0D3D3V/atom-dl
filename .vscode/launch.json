@@ -29,6 +29,20 @@
                 "-nas",
             ],
             "justMyCode": false
+        },
+        {
+            "name": "Atom-DL Process offline Feed",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/atom-dl",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/debugging-atom-dl/",
+            "args": [
+                "-v",
+                "-pof",
+                "job_defs.json",
+            ],
+            "justMyCode": false
         }
     ]
 }

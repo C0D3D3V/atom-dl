@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 from atom_dl.feed_extractor.common import FeedInfoExtractor
@@ -19,6 +20,20 @@ class JobCreator:
         self.in_feeds = self.as_list_or_none(job_description.get('in_feeds', None))
         self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
         self.not_in_categories = self.as_list_or_none(job_description.get('not_in_categories', None))
+        self.time_delta_updated = self.parse_time_delta(job_description.get('time_delta_updated', None))
+
+    def parse_time_delta(self, delta: Dict):
+        if delta is None:
+            return None
+        allowed_keys = ['days', 'seconds', 'microseconds', 'milliseconds', 'minutes', 'hours', 'weeks']
+        if not isinstance(delta, dict):
+            raise ValueError(
+                f'Time delta needs to be a dictionary with at least one of the following keys: {allowed_keys}'
+            )
+        for key in delta:
+            if key not in allowed_keys:
+                raise ValueError(f'Time delta is only allowed to have the following keys: {allowed_keys}')
+        return timedelta(**delta)
 
     def as_list_or_none(self, obj) -> List:
         if obj is not None and not isinstance(obj, list):
@@ -52,6 +67,12 @@ class JobCreator:
         """
         If the post matches the job description, an job item is returned, else None is returned.
         """
+
+        if self.time_delta_updated is not None:
+            # Check if post is too old for time delta
+            updated_date = datetime.strptime(post.get('updated_date', ''), '%Y-%m-%dT%H:%M:%SZ')
+            if updated_date < datetime.utcnow() - self.time_delta_updated:
+                return None
 
         if self.in_title is not None:
             # Check if title matches job definition
