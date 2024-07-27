@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  atom-dl:
+  atom-dl-plf:
     build:
       context: .
       args:
@@ -12,3 +12,16 @@ services:
       - ./app-atom-dl/data:/home/atom-dl/.local/share/atom-dl
       - ./app-atom-dl/config:/home/atom-dl/.config/atom-dl
       - ${ATOM_DL_DOWNLOADS_PATH}:/atom-dl-downloads
+    command: ["atom-dl -plf"]
+  atom-dl-fjd:
+    build:
+      context: .
+      args:
+        - PUID=621
+        - PGID=1000
+    container_name: atom-dl
+    volumes:
+      - ./app-atom-dl/data:/home/atom-dl/.local/share/atom-dl
+      - ./app-atom-dl/config:/home/atom-dl/.config/atom-dl
+      - ${ATOM_DL_DOWNLOADS_PATH}:/atom-dl-downloads
+    command: ["atom-dl -fjd"]
