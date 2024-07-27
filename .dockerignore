@@ -1,0 +1,6 @@
+# Use Dockerignore as whitelist
+*
+
+!atom-dl
+# include only .py files
+!*.py

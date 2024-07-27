@@ -11,7 +11,7 @@ import sys
 import tempfile
 import unicodedata
 from contextlib import asynccontextmanager
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import urlparse
@@ -100,7 +100,7 @@ class SslHelper:
                 ssl_context.load_verify_locations(capath=cert_loc)
 
     @classmethod
-    @lru_cache(maxsize=8)
+    @cache
     def get_ssl_context(cls, skip_cert_verify: bool, allow_insecure_ssl: bool, use_all_ciphers: bool) -> ssl.SSLContext:
         if not skip_cert_verify:
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
