@@ -7,7 +7,7 @@ services:
       args:
         - PUID=621
         - PGID=1000
-    container_name: atom-dl
+    container_name: atom-dl-plf
     volumes:
       - ./app-atom-dl/data:/home/atom-dl/.local/share/atom-dl
       - ./app-atom-dl/config:/home/atom-dl/.config/atom-dl
@@ -19,7 +19,7 @@ services:
       args:
         - PUID=621
         - PGID=1000
-    container_name: atom-dl
+    container_name: atom-dl-fjd
     volumes:
       - ./app-atom-dl/data:/home/atom-dl/.local/share/atom-dl
       - ./app-atom-dl/config:/home/atom-dl/.config/atom-dl
