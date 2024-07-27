@@ -13,6 +13,8 @@ services:
       - ${ATOM_DL_DOWNLOADS_PATH}:/atom-dl-downloads
       - "/etc/localtime:/etc/localtime:ro"
     command: ["atom-dl", "-plf"]
+    networks:
+      - jd_network
   atom-dl-fjd:
     build:
       context: .
@@ -26,3 +28,9 @@ services:
       - ${ATOM_DL_DOWNLOADS_PATH}:/atom-dl-downloads
       - "/etc/localtime:/etc/localtime:ro"
     command: ["atom-dl", "-fjd"]
+    networks:
+      - jd_network
+
+networks:
+  jd_network:
+    external: true
