@@ -1,6 +1,8 @@
 # Use Dockerignore as whitelist
 *
 
-!atom-dl
-# include only .py files
-!*.py
+
+!README.md
+!LICENSE
+!atom_dl/atom-dl
+!**/*.py
