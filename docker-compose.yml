@@ -5,8 +5,6 @@ services:
     build: .
     user: "621:1000"
     container_name: atom-dl
-    env_file:
-        - .env
     volumes:
       - ./app-atom-dl/data:/root/.local/share/atom-dl
       - ./app-atom-dl/config:/root/.config/atom-dl
