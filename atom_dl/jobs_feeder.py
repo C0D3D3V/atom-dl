@@ -8,13 +8,14 @@ from itertools import cycle
 
 from atom_dl.config_helper import Config
 from atom_dl.my_jd_api import MyJdApi, MYJDException
+from atom_dl.types import AtomDlOpts
 from atom_dl.utils import PathTools as PT
 from atom_dl.utils import append_list_to_json, load_list_from_json, write_to_json
 
 
 class JobsFeeder:
-    def __init__(self, do_not_auto_start_downloading: bool):
-        self.do_not_auto_start_downloading = do_not_auto_start_downloading
+    def __init__(self, opts: AtomDlOpts):
+        self.do_not_auto_start_downloading = opts.do_not_auto_start_downloading
 
         self.finished = False
         self.num_jobs_total = 0
