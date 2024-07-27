@@ -11,3 +11,4 @@ services:
     volumes:
       - ./app-atom-dl/data:/home/atom-dl/.local/share/atom-dl
       - ./app-atom-dl/config:/home/atom-dl/.config/atom-dl
+      - ${ATOM_DL_DOWNLOADS_PATH}:/atom-dl-downloads
