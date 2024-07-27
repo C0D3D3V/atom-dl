@@ -57,7 +57,7 @@ class LatestFeedProcessor:
                         # First job creator wins
                         break
 
-        logging.info('Collected all jobs')
+        logging.info('Collected %d jobs', len(jobs))
 
         if len(jobs) == 0:
             return

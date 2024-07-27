@@ -56,6 +56,8 @@ class FeedUpdater:
         self.feed_extractor.init(until_date)
         latest_feed_list = self.feed_extractor.download_latest_feed()
 
+        logging.info('Latest feed consists of %d entries', len(latest_feed_list))
+
         # update json
         self.update_feed_json(feed_name, latest_feed_list)
 
