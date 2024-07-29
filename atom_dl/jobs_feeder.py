@@ -415,7 +415,7 @@ class JobsFeeder:
                     name = decrypted_link.get('name', None)
                     if name is None or decrypted_link_id is None:
                         continue  # should not happen
-
+                    
                     if not is_already_done and availability == 'ONLINE':
                         new_name = name.replace('_', ' ')
                         if new_name != name:
@@ -431,6 +431,8 @@ class JobsFeeder:
                                 remove_links_ids.append(decrypted_link_id)
                             else:
                                 is_online = True
+                        else:
+                            is_online = True
                     elif availability in ['TEMP_UNKNOWN', 'UNKNOWN']:
                         needs_retry = True
                     elif availability == 'OFFLINE':
