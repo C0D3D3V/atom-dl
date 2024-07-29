@@ -10,7 +10,12 @@ from atom_dl.config_helper import Config
 from atom_dl.my_jd_api import MyJdApi, MYJDException
 from atom_dl.types import AtomDlOpts
 from atom_dl.utils import PathTools as PT
-from atom_dl.utils import append_list_to_json, load_list_from_json, write_to_json
+from atom_dl.utils import (
+    append_list_to_json,
+    load_list_from_json,
+    remove_duplicates_from_sorted_list,
+    write_to_json,
+)
 
 
 class JobsFeeder:
@@ -20,6 +25,7 @@ class JobsFeeder:
         self.finished = False
         self.num_jobs_total = 0
         self.done_links = []
+        self.done_file_names = []
         self.new_jobs = []
         self.max_parallel_decrypt_jobs = 15
         self.decrypt_jobs = []
@@ -65,10 +71,12 @@ class JobsFeeder:
         jobs_json_file_path = PT.get_path_of_jobs_json()
         self.new_jobs = load_list_from_json(jobs_json_file_path)
 
-        done_links_json_file_path = PT.get_path_of_done_links_json()
-        self.done_links = load_list_from_json(done_links_json_file_path)
+        self.done_links = load_list_from_json(PT.get_path_of_done_links_json())
         # To make the search for elements faster we sort the list
         self.done_links.sort()
+
+        self.done_file_names = PT.get_path_of_done_file_names_json()
+        self.done_file_names.sort()
 
         self.num_jobs_total = len(self.new_jobs)
         if self.num_jobs_total > 0:
@@ -93,7 +101,7 @@ class JobsFeeder:
             sys.exit(1)
 
         append_list_to_json(PT.get_path_of_checked_jobs_json(), self.checked_jobs)
-        self.save_all_done_links()
+        self.save_all_done_links_and_file_names()
         self.delete_or_backup_done_jobs()
 
         if self.auto_start_downloading and not self.do_not_auto_start_downloading:
@@ -120,24 +128,39 @@ class JobsFeeder:
         else:
             logging.info('JDownloader is starting downloading...')
 
-    def save_all_done_links(self):
+    def save_all_done_links_and_file_names(self):
         # Extract all decrypted links from checked_jobs
         all_decrypted_links = []
+        all_done_file_names = []
         for checked_job in self.checked_jobs:
             decrypted_links = checked_job.get('decrypted_links', [])
             for decrypted_link in decrypted_links:
                 url = decrypted_link.get('url', None)
+                name = decrypted_link.get('name', None)
                 availability = decrypted_link.get('availability', 'OFFLINE')
                 is_already_done = decrypted_link.get('is_already_done', False)
                 if url is not None and not is_already_done and availability in ['ONLINE', 'OFFLINE']:
                     all_decrypted_links.append(url)
+                    if name is not None:
+                        all_done_file_names.append(name)
 
         # Items should be unique since we already tested if they are in the list
         self.done_links.extend(all_decrypted_links)
         self.done_links.sort()
+
+        # File names are probably not unique
+        self.done_file_names.extend(all_done_file_names)
+        self.done_file_names.sort()
+        # just in case remove duplicates, so we can bisect search
+        self.done_file_names = remove_duplicates_from_sorted_list(self.done_file_names)
+
         path_of_done_links_json = PT.get_path_of_done_links_json()
         write_to_json(path_of_done_links_json, self.done_links)
-        logging.info('Checked jobs appended to: %r', path_of_done_links_json)
+        logging.info('Checked jobs links appended to: %r', path_of_done_links_json)
+
+        path_of_done_file_names_json = PT.get_path_of_done_file_names_json()
+        write_to_json(path_of_done_file_names_json, self.done_links)
+        logging.info('Checked jobs file names appended to: %r', path_of_done_file_names_json)
 
     def delete_or_backup_done_jobs(self):
         # Handle old jobs json
@@ -308,11 +331,12 @@ class JobsFeeder:
                 decrypted_links = next_retry_job.get('decrypted_links', [])
                 retry_counter = next_retry_job.get('retry', 0)
 
-                # Check online status of URLs nd Package
+                # Check online status of URLs and Package
                 is_online = False
                 is_offline = False
                 is_already_done = False
                 needs_retry = False
+
                 remove_links_ids = []
                 for decrypted_link in decrypted_links:
                     availability = decrypted_link.get('availability', 'OFFLINE')
@@ -362,12 +386,27 @@ class JobsFeeder:
             else:
                 await asyncio.sleep(1)
 
+    def check_already_done_name(self, name: str) -> bool:
+        """
+        Return True if the file name is already done
+        """
+        idx = bisect.bisect_left(self.done_file_names, name)
+        return idx != len(self.done_file_names) and self.done_file_names[idx] == name
+
     async def check_filenames_jobs(self):
         while not self.finished:
             if len(self.filenames_jobs) > 0:
                 next_filenames_job = self.filenames_jobs.pop(0)
 
                 decrypted_links = next_filenames_job.get('decrypted_links', [])
+
+                remove_links_ids = []
+
+                # We updated the package status, because it can be that links now get status "already done"
+                is_online = False
+                is_offline = False
+                is_already_done = False
+                needs_retry = False
 
                 for decrypted_link in decrypted_links:
                     availability = decrypted_link.get('availability', 'OFFLINE')
@@ -383,6 +422,36 @@ class JobsFeeder:
                             # Rename all links that are online to match our convention
                             self.jd_device.linkgrabber.rename_link(decrypted_link_id, new_name)
                             await asyncio.sleep(0)
+                        name = new_name
+                        if next_filenames_job.get('filter_done_file_names', False):
+                            already_done = self.check_already_done_name(name)
+                            if already_done:
+                                is_already_done = True
+                                decrypted_link['is_already_done'] = True
+                                remove_links_ids.append(decrypted_link_id)
+                            else:
+                                is_online = True
+                    elif availability in ['TEMP_UNKNOWN', 'UNKNOWN']:
+                        needs_retry = True
+                    elif availability == 'OFFLINE':
+                        is_offline = True
+
+                if len(remove_links_ids) > 0:
+                    # Remove all links with filenames that are already done
+                    self.jd_device.linkgrabber.remove_links(remove_links_ids, [])
+                    await asyncio.sleep(0)
+
+                # Update package status
+                if is_online:
+                    next_filenames_job['status'] = 'ONLINE'
+                elif needs_retry:
+                    next_filenames_job['status'] = 'UNKNOWN'
+                elif is_offline:
+                    next_filenames_job['status'] = 'OFFLINE'
+                elif is_already_done:
+                    next_filenames_job['status'] = 'ALREADY_DONE'
+                else:
+                    next_filenames_job['status'] = 'REAL_UNKNOWN'
 
                 self.checked_jobs.append(next_filenames_job)
 

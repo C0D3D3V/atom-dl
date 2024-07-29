@@ -21,6 +21,7 @@ class JobCreator:
         self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
         self.not_in_categories = self.as_list_or_none(job_description.get('not_in_categories', None))
         self.time_delta_updated = self.parse_time_delta(job_description.get('time_delta_updated', None))
+        self.filter_done_file_names = self.parse_time_delta(job_description.get('filter_done_file_names', False))
 
     def parse_time_delta(self, delta: Dict):
         if delta is None:
@@ -59,6 +60,7 @@ class JobCreator:
             "package_name": package_name,
             "password": post.get("password", None),
             "extractor_key": extractor_key,
+            "filter_done_file_names": self.filter_done_file_names,
         }
 
         return job_dict

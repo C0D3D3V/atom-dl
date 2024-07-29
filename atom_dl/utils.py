@@ -14,7 +14,6 @@ from contextlib import asynccontextmanager
 from functools import cache
 from pathlib import Path
 from typing import Dict, List
-from urllib.parse import urlparse
 
 import aiohttp
 import orjson
@@ -89,7 +88,7 @@ class SslHelper:
         if not cert_loc or not os.path.exists(cert_loc):
             if not cls.warned_about_certifi:
                 logging.warning(
-                    f"Certifi could not find a suitable TLS CA certificate bundle, invalid path: {cert_loc}"
+                    "Certifi could not find a suitable TLS CA certificate bundle, invalid path: %s", cert_loc
                 )
                 cls.warned_about_certifi = True
             ssl_context.load_default_certs()
@@ -310,7 +309,7 @@ def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
             o_file.write(json_bytes)
 
     except (OSError, IOError) as err:
-        logging.error(f'Error: Could not append List to json: {json_file_path} Reason: {str(err)}')
+        logging.error(f'Error: Could not append List to json: %r Reason: %s', json_file_path, err)
         sys.exit(-1)
     finally:
         if o_file is not None:
@@ -328,7 +327,7 @@ def write_to_json(json_file_path: str, item_to_store):
             o_file.write(json_bytes)
 
     except (OSError, IOError) as err:
-        logging.error(f'Error: Could not write item to json: {json_file_path} Reason: {str(err)}')
+        logging.error(f'Error: Could not write item to json: %r Reason: %s', json_file_path, err)
         sys.exit(-1)
 
 
@@ -604,10 +603,6 @@ class PathTools:
         return str(Path(PathTools.get_project_config_directory()) / 'last_feed_job_defs.json')
 
     @staticmethod
-    def get_path_of_log_file():
-        return str(Path(PathTools.get_project_data_directory()) / 'AtomDownloader.log')
-
-    @staticmethod
     def get_path_of_lock_file():
         return str(Path(tempfile.gettempdir()) / 'AtomDownloader.running.lock')
 
@@ -630,6 +625,10 @@ class PathTools:
         return str(Path(PathTools.get_project_data_directory()) / 'done_links.json')
 
     @staticmethod
+    def get_path_of_done_file_names_json():
+        return str(Path(PathTools.get_project_data_directory()) / 'done_file_names.json')
+
+    @staticmethod
     def get_path_of_last_feed_update_json():
         return str(Path(PathTools.get_project_data_directory()) / 'last_feed_update.json')
 
@@ -641,3 +640,14 @@ class PathTools:
     @staticmethod
     def get_path_of_checked_jobs_json():
         return str(Path(PathTools.get_project_data_directory()) / 'checked_jobs.json')
+
+
+def remove_duplicates_from_sorted_list(sorted_list):
+    if not sorted_list:
+        return []
+
+    unique_list = [sorted_list[0]]  # Initialize with the first element
+    for item in sorted_list[1:]:
+        if item != unique_list[-1]:
+            unique_list.append(item)
+    return unique_list
