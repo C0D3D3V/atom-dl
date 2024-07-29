@@ -21,7 +21,7 @@ class JobCreator:
         self.in_categories = self.as_list_or_none(job_description.get('in_categories', None))
         self.not_in_categories = self.as_list_or_none(job_description.get('not_in_categories', None))
         self.time_delta_updated = self.parse_time_delta(job_description.get('time_delta_updated', None))
-        self.filter_done_file_names = self.parse_time_delta(job_description.get('filter_done_file_names', False))
+        self.filter_done_file_names = self.as_type_or(job_description.get('filter_done_file_names'), bool, False)
 
     def parse_time_delta(self, delta: Dict):
         if delta is None:
@@ -39,6 +39,11 @@ class JobCreator:
     def as_list_or_none(self, obj) -> List:
         if obj is not None and not isinstance(obj, list):
             return [obj]
+        return obj
+
+    def as_type_or(self, obj, obj_type, default):
+        if obj is None or not isinstance(obj, obj_type):
+            return default
         return obj
 
     def create_job(self, post: Dict, extractor: FeedInfoExtractor) -> Dict:
