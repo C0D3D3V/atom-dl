@@ -309,7 +309,7 @@ def append_list_to_json(json_file_path: str, list_to_append: List[Dict]):
             o_file.write(json_bytes)
 
     except (OSError, IOError) as err:
-        logging.error(f'Error: Could not append List to json: %r Reason: %s', json_file_path, err)
+        logging.error('Error: Could not append List to json: %r Reason: %s', json_file_path, err)
         sys.exit(-1)
     finally:
         if o_file is not None:
@@ -327,7 +327,7 @@ def write_to_json(json_file_path: str, item_to_store):
             o_file.write(json_bytes)
 
     except (OSError, IOError) as err:
-        logging.error(f'Error: Could not write item to json: %r Reason: %s', json_file_path, err)
+        logging.error('Error: Could not write item to json: %r Reason: %s', json_file_path, err)
         sys.exit(-1)
 
 
