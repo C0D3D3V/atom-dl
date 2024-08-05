@@ -141,7 +141,7 @@ class JobsFeeder:
                 is_already_done = decrypted_link.get('is_already_done', False)
                 if url is not None and not is_already_done and availability in ['ONLINE', 'OFFLINE']:
                     all_decrypted_links.append(url)
-                    if name is not None:
+                    if name is not None and checked_job.get('filter_done_file_names', False) :
                         all_done_file_names.append(name)
 
         # Items should be unique since we already tested if they are in the list
