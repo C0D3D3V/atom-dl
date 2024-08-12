@@ -75,7 +75,7 @@ class JobsFeeder:
         # To make the search for elements faster we sort the list
         self.done_links.sort()
 
-        self.done_file_names = PT.get_path_of_done_file_names_json()
+        self.done_file_names = load_list_from_json(PT.get_path_of_done_file_names_json())
         self.done_file_names.sort()
 
         self.num_jobs_total = len(self.new_jobs)
