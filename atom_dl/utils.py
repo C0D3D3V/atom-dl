@@ -1,11 +1,13 @@
 import asyncio
 import collections
 import html
+import ipaddress
 import itertools
 import logging
 import math
 import os
 import re
+import socket
 import ssl
 import sys
 import tempfile
@@ -17,6 +19,7 @@ from typing import Dict, List
 
 import aiohttp
 import orjson
+import psutil
 import requests
 import urllib3
 from requests.utils import DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths
@@ -76,6 +79,35 @@ class FetchWorkerPool:
         finally:
             await self.release_worker(worker)
         return result
+
+
+def get_local_networks():
+    """
+    Get local IP addresses and subnet masks, then calculate the associated networks.
+    Returns a list of network objects.
+    """
+    networks = []
+    for _, addresses in psutil.net_if_addrs().items():
+        for addr in addresses:
+            # Check if it's an IPv4 address
+            if addr.family == socket.AF_INET:
+                ip_address = addr.address
+                netmask = addr.netmask
+
+                # Calculate the network based on IP address and netmask
+                if netmask:
+                    network = ipaddress.IPv4Network(f"{ip_address}/{netmask}", strict=False)
+                    networks.append(network)
+                    logging.info("Found local network: %s", network)
+    return networks
+
+
+def is_ip_in_networks(ip, networks: ipaddress.IPv4Network) -> bool:
+    """
+    Check if each IP address in `ip` is within any of the networks.
+    """
+    ip_obj = ipaddress.IPv4Address(ip)
+    return any(ip_obj in network for network in networks)
 
 
 class SslHelper:

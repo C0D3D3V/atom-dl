@@ -39,6 +39,7 @@ setup(
         'lxml>=4.9.1',
         'orjson>=3.8.3',
         'pycryptodomex>=3.20.0',
+        'psutil>=6.1.0',
         'rarfile>=4.2',
         'requests>2.28.1',
         'sentry_sdk>=0.13.5',

@@ -21,6 +21,7 @@ from atom_dl.my_jd_api.exception import (
     MYJDDecodeException,
     MYJDDeviceNotFoundException,
 )
+from atom_dl.utils import get_local_networks, is_ip_in_networks
 
 BS = 16
 
@@ -1257,11 +1258,22 @@ class Jddevice:
         Updates the direct_connections info keeping the order.
         """
         tmp = []
+        tmp_is_local = []
+        tmp_not_local = []
+        networks = get_local_networks()
         if self.__direct_connection_info is None:
+            # Move local direct addresses to the top
             for conn in direct_info:
-                tmp.append({'conn': conn, 'cooldown': 0})
-            self.__direct_connection_info = tmp
+                ip = conn['ip']
+                if is_ip_in_networks(ip, networks):
+                    tmp_is_local.append({'conn': conn, 'cooldown': 0})
+                else:
+                    tmp_not_local.append({'conn': conn, 'cooldown': 0})
+
+            self.__direct_connection_info = tmp_is_local + tmp_not_local
             return
+
+        tmp = self.__direct_connection_info.copy()
         #  We remove old connections not available anymore.
         for i in self.__direct_connection_info:
             if i['conn'] not in direct_info:
@@ -1270,8 +1282,14 @@ class Jddevice:
                 direct_info.remove(i['conn'])
         # We add new connections
         for conn in direct_info:
-            tmp.append({'conn': conn, 'cooldown': 0})
-        self.__direct_connection_info = tmp
+            ip = conn['ip']
+            if is_ip_in_networks(ip, networks):
+                # Only local addresses will be added to the top
+                tmp_is_local.append({'conn': conn, 'cooldown': 0})
+            else:
+                # Add the rest to the end
+                tmp.append({'conn': conn, 'cooldown': 0})
+        self.__direct_connection_info = tmp_is_local + tmp
 
     def enable_direct_connection(self):
         self.__direct_connection_enabled = True
